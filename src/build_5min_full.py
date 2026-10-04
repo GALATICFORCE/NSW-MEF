@@ -27,6 +27,8 @@ def read_price_setters():
     dm = ps["DispatchedMarket"]
     kind = pd.Series("other", index=ps.index)   # GenericConstraintSurplus、DROF 等
     kind[dm == "ENOF"] = "enof"
+    # 和 nemed 一样，Basslink 不算 ENOF 定价机组，只单独记诊断列
+    kind[(dm == "ENOF") & ps["Unit"].str.contains(BASSLINK)] = "basslink"
     kind[dm == "BDOF,GEN"] = "gen"
     kind[dm == "BDOF,LOAD"] = "load"
     kind[dm == "LDOF"] = "ldof"
@@ -39,7 +41,7 @@ def read_price_setters():
 def flag_ef_missing(ps):
     """ENOF 定价机组查不到排放因子的记录。和 nemed 一样去掉 Basslink，按 Time（区间结束）所在月份匹配"""
     factors = monthly_factors("2025-07", "2026-06")
-    enof = ps[(ps["kind"] == "enof") & ~ps["Unit"].str.contains(BASSLINK)].copy()
+    enof = ps[ps["kind"] == "enof"].copy()
     enof["file_year"], enof["file_month"] = enof["Time"].dt.year, enof["Time"].dt.month
     enof = enof.merge(factors[["file_year", "file_month", "DUID", "CO2E_EMISSIONS_FACTOR"]],
                       left_on=["Unit", "file_year", "file_month"], right_on=["DUID", "file_year", "file_month"],
@@ -52,12 +54,12 @@ def summarise(ps):
         return ps["Increase"].where(ps["kind"] == k, 0.0)
 
     ps = ps.assign(w_enof=w("enof"), w_gen=w("gen"), w_load=w("load"), w_ldof=w("ldof"), w_fcas=w("fcas"),
-                   is_tbslack=ps["kind"] == "tbslack",
+                   w_basslink=w("basslink"), is_tbslack=ps["kind"] == "tbslack",
                    neg_batt=ps["kind"].isin(["gen", "load"]) & (ps["Increase"] < 0))
     for k in ["enof", "gen", "load", "ldof"]:
         ps[f"has_{k}"] = ps["kind"] == k
     g = ps.groupby("Time")
-    out = g[["w_enof", "w_gen", "w_load", "w_ldof", "w_fcas"]].sum()
+    out = g[["w_enof", "w_gen", "w_load", "w_ldof", "w_fcas", "w_basslink"]].sum()
     out["n_tbslack"] = g["is_tbslack"].sum()
     out["n_neg_batt"] = g["neg_batt"].sum()
     out[["has_enof", "has_gen", "has_load", "has_ldof"]] = g[["has_enof", "has_gen", "has_load", "has_ldof"]].any()
@@ -74,7 +76,7 @@ def read_nemed_mef():
 ps = read_price_setters()
 full_index = pd.date_range(START, END, freq="5min", name="Time")
 df = summarise(ps).reindex(full_index)
-num = ["w_enof", "w_gen", "w_load", "w_ldof", "w_fcas", "n_tbslack", "n_neg_batt"]
+num = ["w_enof", "w_gen", "w_load", "w_ldof", "w_fcas", "w_basslink", "n_tbslack", "n_neg_batt"]
 df[num] = df[num].fillna(0)
 df[["n_tbslack", "n_neg_batt"]] = df[["n_tbslack", "n_neg_batt"]].astype(int)
 flags = ["has_enof", "has_gen", "has_load", "has_ldof"]
@@ -98,7 +100,8 @@ batt_dir[df["has_gen"] & df["has_load"]] = "both"
 df["batt_dir"] = batt_dir.where(df["status"].isin(["batt", "mixed"]))
 
 out = df.reset_index()[["Time", "mef_nemed", "status", "batt_dir", "w_enof", "w_gen", "w_load", "w_ldof",
-                        "w_fcas", "n_tbslack", "n_neg_batt", "has_ldof", "ef_missing", "dispatch_types"]]
+                        "w_fcas", "w_basslink", "n_tbslack", "n_neg_batt", "has_ldof", "ef_missing",
+                        "dispatch_types"]]
 assert len(out) == 105_120 and out["Time"].is_unique
 out.to_csv(OUT, index=False)
 print("rows:", len(out), "->", OUT)
