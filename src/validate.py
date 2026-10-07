@@ -9,9 +9,14 @@ from pathlib import Path
 import pandas as pd
 
 from build_hourly_mef import FIRST_HOUR, FMT, LAST_HOUR, MIN_INTERVALS
-from labels import LABELS, OUT as LABELS_FILE, load_full, nan_mask, nan_reason
+from labels import LABELS, OUT as LABELS_FILE, is_source, load_full, nan_mask, nan_reason
 
 EXPECTED_NAN_5MIN = 647
+EXPECTED_SOURCES = 70_731
+# 档位列 -> 适用的电池方向（规则第 5 节）
+TIER_COLS = {"tier_B": ["charge", "discharge", "both"], "tier_C_gen": ["discharge", "both"],
+             "tier_C_load": ["charge", "both"], "tier_Cfwd_gen": ["discharge", "both"]}
+TIER_FOR = {"B": ["tier_B"], "C": ["tier_C_gen", "tier_C_load"], "Cfwd": ["tier_Cfwd_gen", "tier_C_load"]}
 REPORT = "outputs/validate_rules-v1.txt"
 DST_DAYS = {"2025-10-05": 23, "2026-04-05": 25}
 
@@ -62,6 +67,35 @@ def check_labels_5min(full, names):
          + ", ".join(f"{r} {n}" for r, n in reasons[reasons != ""].value_counts().items()))
     month = (full["Time"] - pd.Timedelta("5min")).dt.to_period("M")
     note("NaN intervals by month: " + ", ".join(f"{m} {n}" for m, n in mask.groupby(month).sum().items()))
+
+    n_src = int(is_source(full).sum())
+    check(f"source intervals = {EXPECTED_SOURCES:,}", n_src == EXPECTED_SOURCES, f"{n_src}")
+    present = [n for n in names if f"label_{n}" in lab]
+    if len(present) > 1:
+        same_nan = all(lab[f"label_{n}"].isna().equals(lab[f"label_{present[0]}"].isna()) for n in present)
+        check("NaN positions identical across " + "/".join(present), same_nan)
+        nonbatt = (full["status"] == "nonbatt") & ~mask
+        same = all((lab.loc[nonbatt, f"label_{n}"] == lab.loc[nonbatt, f"label_{present[0]}"]).all() for n in present)
+        check("nonbatt intervals: all labels equal (= mef_nemed)", same)
+    if "label_A" in lab:
+        batt = (full["status"] == "batt") & ~mask
+        check("batt intervals: label_A = 0", (lab.loc[batt, "label_A"] == 0).all())
+
+    for col in sorted({c for n in names for c in TIER_FOR.get(n, [])}):
+        if col not in lab:
+            check(f"{col} present", False)
+            continue
+        applies = full["batt_dir"].isin(TIER_COLS[col]) & ~mask
+        tier = lab[col]
+        check(f"{col} filled exactly where it applies", tier.notna().equals(applies),
+              f"{int(applies.sum())} applicable intervals")
+        check(f"{col} values in {{0,1,2,3}}", tier.dropna().isin([0, 1, 2, 3]).all())
+        dist = pd.crosstab(month[applies], tier[applies].fillna(-1).astype(int)).reindex(
+            columns=[1, 2, 3, 0], fill_value=0)
+        dist.columns = ["tier1", "tier2", "tier3", "none(NaN)"]
+        dist.loc["total"] = dist.sum()
+        note(f"{col} by month (counts of applicable intervals):")
+        note(dist.to_string())
     return lab
 
 

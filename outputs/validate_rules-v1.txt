@@ -8,10 +8,131 @@
 [PASS] labels file Time matches full table
 [PASS] label_A NaN = 647 | 647
 [PASS] label_A NaN positions = rule-based nan_mask
+[PASS] label_B NaN = 647 | 647
+[PASS] label_B NaN positions = rule-based nan_mask
+[PASS] label_C NaN = 647 | 647
+[PASS] label_C NaN positions = rule-based nan_mask
+[PASS] label_Cfwd NaN = 647 | 647
+[PASS] label_Cfwd NaN positions = rule-based nan_mask
 NaN intervals by reason (first matching rule): w_total 263, status_other 256, ef_missing 91, status_norecord 25, has_ldof 12
 NaN intervals by month: 2025-07 67, 2025-08 43, 2025-09 45, 2025-10 42, 2025-11 39, 2025-12 64, 2026-01 66, 2026-02 54, 2026-03 53, 2026-04 58, 2026-05 69, 2026-06 47
+[PASS] source intervals = 70,731 | 70731
+[PASS] NaN positions identical across A/B/C/Cfwd
+[PASS] nonbatt intervals: all labels equal (= mef_nemed)
+[PASS] batt intervals: label_A = 0
+[PASS] tier_B filled exactly where it applies | 33742 applicable intervals
+[PASS] tier_B values in {0,1,2,3}
+tier_B by month (counts of applicable intervals):
+         tier1  tier2  tier3  none(NaN)
+Time                                   
+2025-07   1690      0      0          0
+2025-08   1728      0      0          0
+2025-09   1614      0      0          0
+2025-10   1665     14      0          0
+2025-11   1773     14      0          0
+2025-12   2292      8      0          0
+2026-01   3523     17      0          0
+2026-02   3450     10      0          0
+2026-03   3732     16      0          0
+2026-04   3545      0      0          0
+2026-05   4109      0      0          0
+2026-06   4542      0      0          0
+total    33663     79      0          0
+[PASS] tier_C_gen filled exactly where it applies | 16379 applicable intervals
+[PASS] tier_C_gen values in {0,1,2,3}
+tier_C_gen by month (counts of applicable intervals):
+         tier1  tier2  tier3  none(NaN)
+Time                                   
+2025-07    819      0      0          0
+2025-08    834      0      0          0
+2025-09    968      0      0          0
+2025-10    943     35      0          0
+2025-11   1005     70      0          0
+2025-12   1165     69      0          0
+2026-01   1311     61      0          0
+2026-02   1532     33      0          0
+2026-03   1821     54      0          0
+2026-04   1699      4      0          0
+2026-05   1939      0      0          0
+2026-06   2017      0      0          0
+total    16053    326      0          0
+[PASS] tier_C_load filled exactly where it applies | 17445 applicable intervals
+[PASS] tier_C_load values in {0,1,2,3}
+tier_C_load by month (counts of applicable intervals):
+         tier1  tier2  tier3  none(NaN)
+Time                                   
+2025-07    875      0      0          0
+2025-08    901      0      0          0
+2025-09    648      0      0          0
+2025-10    708      0      0          0
+2025-11    727      0      0          0
+2025-12   1078      0      0          0
+2026-01   2166      8      0          0
+2026-02   1894     10      0          0
+2026-03   1873      0      0          0
+2026-04   1844      0      0          0
+2026-05   2175      0      0          0
+2026-06   2538      0      0          0
+total    17427     18      0          0
+[PASS] tier_Cfwd_gen filled exactly where it applies | 16379 applicable intervals
+[PASS] tier_Cfwd_gen values in {0,1,2,3}
+tier_Cfwd_gen by month (counts of applicable intervals):
+         tier1  tier2  tier3  none(NaN)
+Time                                   
+2025-07    819      0      0          0
+2025-08    834      0      0          0
+2025-09    968      0      0          0
+2025-10    978      0      0          0
+2025-11   1075      0      0          0
+2025-12   1234      0      0          0
+2026-01   1372      0      0          0
+2026-02   1565      0      0          0
+2026-03   1875      0      0          0
+2026-04   1703      0      0          0
+2026-05   1939      0      0          0
+2026-06   1963     54      0          0
+total    16325     54      0          0
 
 == hourly table: data/processed/mef_hourly_A_rules-v1.csv
+[PASS] columns in shared order | ['hour_start_nem', 'hour_start_sydney', 'sydney_date', 'value', 'n_intervals']
+[PASS] rows = 8,760 | 8760
+[PASS] hour_start_nem unique, continuous, 2025-07-01 00:00 -> 2026-06-30 23:00
+[PASS] hour_start_sydney = NEM converted to Australia/Sydney
+[PASS] sydney_date = date of hour_start_sydney
+[PASS] hours per sydney_date: 2025-10-05 = 23, 2026-04-05 = 25, others 24 | 365 dates, 2025-10-05 23, 2026-04-05 25
+[PASS] n_intervals = valid 5-min labels in the hour
+[PASS] value NaN <=> n_intervals < 6
+NaN hours: 0 | hours with n_intervals < 12: 505
+n_intervals distribution: 6:2, 7:3, 8:7, 9:17, 10:65, 11:411, 12:8255
+NaN hours by month: 2025-07 0, 2025-08 0, 2025-09 0, 2025-10 0, 2025-11 0, 2025-12 0, 2026-01 0, 2026-02 0, 2026-03 0, 2026-04 0, 2026-05 0, 2026-06 0
+
+== hourly table: data/processed/mef_hourly_B_rules-v1.csv
+[PASS] columns in shared order | ['hour_start_nem', 'hour_start_sydney', 'sydney_date', 'value', 'n_intervals']
+[PASS] rows = 8,760 | 8760
+[PASS] hour_start_nem unique, continuous, 2025-07-01 00:00 -> 2026-06-30 23:00
+[PASS] hour_start_sydney = NEM converted to Australia/Sydney
+[PASS] sydney_date = date of hour_start_sydney
+[PASS] hours per sydney_date: 2025-10-05 = 23, 2026-04-05 = 25, others 24 | 365 dates, 2025-10-05 23, 2026-04-05 25
+[PASS] n_intervals = valid 5-min labels in the hour
+[PASS] value NaN <=> n_intervals < 6
+NaN hours: 0 | hours with n_intervals < 12: 505
+n_intervals distribution: 6:2, 7:3, 8:7, 9:17, 10:65, 11:411, 12:8255
+NaN hours by month: 2025-07 0, 2025-08 0, 2025-09 0, 2025-10 0, 2025-11 0, 2025-12 0, 2026-01 0, 2026-02 0, 2026-03 0, 2026-04 0, 2026-05 0, 2026-06 0
+
+== hourly table: data/processed/mef_hourly_C_rules-v1.csv
+[PASS] columns in shared order | ['hour_start_nem', 'hour_start_sydney', 'sydney_date', 'value', 'n_intervals']
+[PASS] rows = 8,760 | 8760
+[PASS] hour_start_nem unique, continuous, 2025-07-01 00:00 -> 2026-06-30 23:00
+[PASS] hour_start_sydney = NEM converted to Australia/Sydney
+[PASS] sydney_date = date of hour_start_sydney
+[PASS] hours per sydney_date: 2025-10-05 = 23, 2026-04-05 = 25, others 24 | 365 dates, 2025-10-05 23, 2026-04-05 25
+[PASS] n_intervals = valid 5-min labels in the hour
+[PASS] value NaN <=> n_intervals < 6
+NaN hours: 0 | hours with n_intervals < 12: 505
+n_intervals distribution: 6:2, 7:3, 8:7, 9:17, 10:65, 11:411, 12:8255
+NaN hours by month: 2025-07 0, 2025-08 0, 2025-09 0, 2025-10 0, 2025-11 0, 2025-12 0, 2026-01 0, 2026-02 0, 2026-03 0, 2026-04 0, 2026-05 0, 2026-06 0
+
+== hourly table: data/processed/mef_hourly_Cfwd_rules-v1.csv
 [PASS] columns in shared order | ['hour_start_nem', 'hour_start_sydney', 'sydney_date', 'value', 'n_intervals']
 [PASS] rows = 8,760 | 8760
 [PASS] hour_start_nem unique, continuous, 2025-07-01 00:00 -> 2026-06-30 23:00
