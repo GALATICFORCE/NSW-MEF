@@ -1,0 +1,29 @@
+2025-07: 8928 intervals, 101 units (4 without EF), 14 s
+2025-08: 8928 intervals, 101 units (4 without EF), 10 s
+2025-09: 8640 intervals, 101 units (4 without EF), 11 s
+2025-10: 8928 intervals, 101 units (4 without EF), 10 s
+2025-11: 8640 intervals, 102 units (4 without EF), 11 s
+2025-12: 8928 intervals, 102 units (4 without EF), 11 s
+2026-01: 8928 intervals, 103 units (4 without EF), 11 s
+2026-02: 8064 intervals, 103 units (4 without EF), 11 s
+2026-03: 8928 intervals, 103 units (4 without EF), 11 s
+2026-04: 8640 intervals, 104 units (4 without EF), 11 s
+2026-05: 8928 intervals, 104 units (4 without EF), 11 s
+2026-06: 8640 intervals, 104 units (4 without EF), 12 s
+
+== data/processed/aei_nsw1_5min_full.csv
+total runtime 135 s
+rows 105120 | NaN per column {'Energy_SO': 0, 'Total_Emissions': 0, 'aei': 0} | Energy_SO <= 0: 0
+first interval of each month (00:05) present with energy: 12 of 12
+aei (tCO2e/MWh): min 0.214, p1 0.265, median 0.621, p99 0.829, max 0.864
+regression vs trial 2025-07-15 Total_Emissions: max abs diff 5.68e-14 t over 288 intervals
+
+== units without emissions factor (excluded from AEI)
+intervals where any such unit has output: 1536 of 105120; their energy 13680.8 MWh = 0.02282% of NSW1 generator sent-out energy
+        intervals   energy_mwh     share                                                                           months
+DUID                                                                                                                     
+CG4           696  6845.811110  0.000114  2025-08,2025-09,2025-10,2025-11,2025-12,2026-01,2026-02,2026-03,2026-05,2026-06
+CG2           489  5038.409118  0.000084  2025-07,2025-08,2025-10,2025-11,2025-12,2026-01,2026-02,2026-03,2026-05,2026-06
+ERGT01        732  1796.606492  0.000030                          2025-09,2025-10,2025-11,2025-12,2026-02,2026-05,2026-06
+
+cache data/aei_cache: 5.86 GB (SCADA csv 4.92 GB, feather 0.93 GB)
