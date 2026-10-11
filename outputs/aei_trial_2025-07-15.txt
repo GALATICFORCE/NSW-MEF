@@ -1,0 +1,39 @@
+== nemed.get_total_emissions, NSW1, 2025-07-15
+runtime: first call (with downloads) 1 s, second call (cached) 1 s
+cache data/aei_cache: 424 MB
+    processed_co2_total_2025-07-14_2025-07-16.parquet  1.5 MB
+    PUBLIC_DVD_DISPATCH_UNIT_SCADA_202507010000.CSV  343.4 MB
+    PUBLIC_DVD_DISPATCH_UNIT_SCADA_202507010000.feather  64.7 MB
+    PUBLIC_DVD_DUALLOC_202606010000.CSV  0.3 MB
+    PUBLIC_DVD_DUALLOC_202606010000.feather  0.1 MB
+    PUBLIC_DVD_DUALLOC_202607010000.CSV  0.3 MB
+    PUBLIC_DVD_DUALLOC_202607010000.feather  0.1 MB
+    PUBLIC_DVD_DUDETAILSUMMARY_202606010000.CSV  5.1 MB
+    PUBLIC_DVD_DUDETAILSUMMARY_202606010000.feather  1.6 MB
+    PUBLIC_DVD_DUDETAILSUMMARY_202607010000.CSV  5.1 MB
+    PUBLIC_DVD_DUDETAILSUMMARY_202607010000.feather  1.6 MB
+    PUBLIC_DVD_GENUNITS_202507010000.CSV  0.1 MB
+    PUBLIC_DVD_GENUNITS_202507010000.feather  0.1 MB
+rows: 288 | TimeEnding 2025-07-15 00:05:00 -> 2025-07-16 00:00:00
+columns: ['TimeEnding', 'Region', 'Energy', 'Total_Emissions', 'Intensity_Index'] | dtypes: {'TimeEnding': 'datetime64[ns]', 'Region': 'object', 'Energy': 'float64', 'Total_Emissions': 'float64', 'Intensity_Index': 'float64'}
+NaN per column: {'TimeEnding': 0, 'Region': 0, 'Energy': 0, 'Total_Emissions': 0, 'Intensity_Index': 0} | Intensity_Index == 0: 0
+Intensity_Index (tCO2e/MWh): min 0.573, median 0.624, max 0.742 | day energy 229936 MWh, emissions 146743 t
+
+== hand check (3 intervals)
+nemed convention: energy = mean(SCADA at SETTLEMENTDATE T, T+5) x 5/60, x (1 - aux%), NSW1 GENERATOR units with an emissions factor only
+simple: sum(MW x EF) / sum(MW) using SCADA at SETTLEMENTDATE T, same units, no ramp, no aux
+TimeEnding 2025-07-15 04:00: nemed 0.729703 | hand (nemed convention) 0.768403, diff +3.87e-02 | simple 0.774919, diff +0.0452 (+6.20%)
+    energy: nemed 616.367 MWh, hand 585.324 MWh | units: 97 with EF, 4 NSW1 generators without EF: CG2 0.0 MW, CG4 0.0 MW, DG_NSW1 0.0 MW, ERGT01 0.0 MW
+TimeEnding 2025-07-15 12:00: nemed 0.594213 | hand (nemed convention) 0.620177, diff +2.60e-02 | simple 0.628379, diff +0.0342 (+5.75%)
+    energy: nemed 800.041 MWh, hand 766.546 MWh | units: 97 with EF, 4 NSW1 generators without EF: CG2 0.0 MW, CG4 0.0 MW, DG_NSW1 0.0 MW, ERGT01 0.0 MW
+TimeEnding 2025-07-15 19:00: nemed 0.591459 | hand (nemed convention) 0.616082, diff +2.46e-02 | simple 0.623812, diff +0.0324 (+5.47%)
+    energy: nemed 924.505 MWh, hand 887.555 MWh | units: 97 with EF, 4 NSW1 generators without EF: CG2 0.0 MW, CG4 0.0 MW, DG_NSW1 0.0 MW, ERGT01 0.0 MW
+
+== all 288 intervals: nemed Intensity_Index vs consistent recomputation from nemed's own unit-level table
+sent-out (emissions / Energy_SO): nemed / this = min 0.9486, median 0.9565, max 0.9604
+as-generated (Energy x EF / Energy): nemed / this = min 0.9432, median 0.9436, max 0.9473
+Energy_SO / Energy per interval: min 0.9486, median 0.9565, max 0.9604
+NSW1 generator SCADA energy on the day (MWh, no ramp): with EF 229959, without EF 0
+
+== NSW1 units in DUDETAILSUMMARY (as of 2026/07/01) by DISPATCHTYPE: {'GENERATOR': 200, 'LOAD': 55, 'BIDIRECTIONAL': 18}
+NSW1 GENERATOR units with no emissions factor in 2025-07 (dropped by nemed from energy AND emissions): ['BAYNL1', 'BLOWER', 'CG2', 'CG4', 'DG_NSW1', 'DLNKNSW', 'ERGT01', 'GB02', 'GESF1', 'GUTH-1', 'GUTH-2', 'KKGTS', 'MULWASF1', 'NGTS', 'QPSFB1', 'REDBANK1', 'SHGEN2', 'SNOWY6', 'TUMUT1-1', 'TUMUT1-2', 'TUMUT1-3', 'TUMUT1-4', 'TUMUT2-1', 'TUMUT2-2', 'TUMUT2-3', 'TUMUT2-4', 'TUMUT3-1', 'TUMUT3-2', 'TUMUT3-3', 'TUMUT3-4', 'TUMUT3-5', 'TUMUT3-6', 'UWS1', 'WGULLY']
