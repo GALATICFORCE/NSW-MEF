@@ -12,21 +12,24 @@ from nights import load_hourly, night_hours, split_nights
 
 FULL = "data/processed/mef_nsw1_5min_full.csv"
 LABEL = "C"
-OUT = "outputs/metrics_{split}_{model}-v1.csv"
+OUT = "outputs/metrics_{split}_{model}-v2.csv"
 SPLITS = ("train", "val")
 
 
-def nonbatt_majority():
-    """NEM 小时 -> 12 个 5 分钟里 status = nonbatt 是否占多数（≥ 7 个）"""
+def hour_status_counts():
+    """NEM 小时 -> 12 个 5 分钟里 status = nonbatt 的个数、status ∈ {batt, mixed} 的个数"""
     full = pd.read_csv(FULL, usecols=["Time", "status"], parse_dates=["Time"])
     hour = (full["Time"] - pd.Timedelta("5min")).dt.floor("H")
-    return (full["status"] == "nonbatt").groupby(hour).sum() >= 7
+    return pd.DataFrame({
+        "n_nonbatt": (full["status"] == "nonbatt").groupby(hour).sum(),
+        "n_battfill": full["status"].isin(["batt", "mixed"]).groupby(hour).sum(),
+    })
 
 
 def yesterday(df, hourly):
-    """B1。D-1 的这个悉尼小时出现两次（夏令时结束）取均值；不存在（夏令时开始）取下一个小时。
+    """B1。D-1 的这个悉尼小时出现两次（夏令时结束）取均值；不存在（夏令时开始）改用 D-2 的同一小时。
 
-    返回 (预测, 用了"下一个小时"的行, 用了"两次取均值"的行)
+    返回 (预测, 用了 D-2 的行, 用了"两次取均值"的行)
     """
     key_cols = [hourly["sydney_date"], hourly["hour_start_sydney"].dt.hour]
     lut = hourly.groupby(key_cols)["value"].mean()
@@ -41,8 +44,9 @@ def yesterday(df, hourly):
     doubled = pd.Series(n_rows.reindex(key).to_numpy() == 2, index=df.index)
     fallback = pred.isna()
     if fallback.any():
-        nxt = pd.MultiIndex.from_arrays([src_date[fallback], hour[fallback] + 1])
-        pred[fallback] = lut.reindex(nxt).to_numpy()
+        d2 = pd.MultiIndex.from_arrays([src_date[fallback] - pd.Timedelta(days=1), hour[fallback]])
+        pred[fallback] = lut.reindex(d2).to_numpy()
+    assert pred.notna().all()
     return pred, fallback, doubled
 
 
@@ -56,7 +60,9 @@ def hourmean(df):
 if __name__ == "__main__":
     df = night_hours(LABEL, SPLITS).rename(columns={"value": "truth"})
     assert set(df["split"]) == set(SPLITS), "test nights must not be loaded before Step 7"
-    df["nonbatt_majority"] = df["hour_start_nem"].map(nonbatt_majority())
+    counts = hour_status_counts()
+    df["nonbatt_majority"] = df["hour_start_nem"].map(counts["n_nonbatt"]) >= 7
+    df["n_battfill"] = df["hour_start_nem"].map(counts["n_battfill"])
 
     # B1 只需要测试期之前的小时
     first_test = split_nights(load_hourly(LABEL)).query("split == 'test'")["night_of"].min()
@@ -70,7 +76,7 @@ if __name__ == "__main__":
         print(f"{split}: {sub['night_of'].nunique()} nights, {len(sub)} hours, "
               f"truth NaN hours dropped: {int(sub['truth'].isna().sum())}, "
               f"nonbatt-majority hours: {int(sub['nonbatt_majority'].sum())}")
-    print(f"yesterday: next-hour fallback {int(fallback.sum())} "
+    print(f"yesterday: D-2 fallback {int(fallback.sum())} "
           f"{df.loc[fallback, 'hour_start_sydney'].dt.strftime('%Y-%m-%d %H:%M').tolist()}, "
           f"two-hour mean {int(doubled.sum())} "
           f"{df.loc[doubled, 'hour_start_sydney'].dt.strftime('%Y-%m-%d %H:%M').tolist()}")
@@ -79,7 +85,10 @@ if __name__ == "__main__":
     for model, pred in preds.items():
         for split in SPLITS:
             sub = df[df["split"] == split].assign(pred=pred[df["split"] == split])
-            summary, _ = evaluate(sub)
+            summary, nightly = evaluate(sub)
             summary.to_csv(OUT.format(split=split, model=model), index=False)
-            print(f"\n== {model} | {split}")
+            share = nightly.drop_duplicates("night_of")["batt_share"]
+            halves = summary.query("month == 'all' and group.str.startswith('batt_share')", engine="python")
+            print(f"\n== {model} | {split} | battery-share median {share.median():.3f}, nights per half "
+                  f"{dict(zip(halves['group'], halves['n_nights']))}")
             print(summary.round(3).to_string(index=False))
