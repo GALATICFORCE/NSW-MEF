@@ -58,18 +58,20 @@ def batt_share_half(df):
     return pd.Series(np.where(share > share.median(), "high", "low"), index=share.index), share
 
 
-def _summary(nightly):
+def _summary(nightly, whole_night=True):
+    """whole_night=False（nonbatt 组）时不汇总 regret 和 Spearman，直接写 NaN"""
+    nan = float("nan")
     return pd.Series({
         "n_nights": int(nightly["mae"].notna().sum()),
         "n_hours": int(nightly["n_hours"].sum()),
         "mae": nightly["mae"].mean(),
-        "regret_kg_mean": nightly["regret_kg"].mean(),
-        "regret_kg_median": nightly["regret_kg"].median(),
-        "regret_kg_p90": nightly["regret_kg"].quantile(0.9),
-        "n_nights_regret": int(nightly["regret_kg"].notna().sum()),
-        "spearman_mean": nightly["spearman"].mean(),
-        "spearman_median": nightly["spearman"].median(),
-        "n_nights_spearman": int(nightly["spearman"].notna().sum()),
+        "regret_kg_mean": nightly["regret_kg"].mean() if whole_night else nan,
+        "regret_kg_median": nightly["regret_kg"].median() if whole_night else nan,
+        "regret_kg_p90": nightly["regret_kg"].quantile(0.9) if whole_night else nan,
+        "n_nights_regret": int(nightly["regret_kg"].notna().sum()) if whole_night else 0,
+        "spearman_mean": nightly["spearman"].mean() if whole_night else nan,
+        "spearman_median": nightly["spearman"].median() if whole_night else nan,
+        "n_nights_spearman": int(nightly["spearman"].notna().sum()) if whole_night else 0,
     })
 
 
@@ -87,8 +89,8 @@ def evaluate(df):
     for group, (sub, whole_night) in groups.items():
         nightly = per_night(sub, whole_night).assign(group=group)
         month = nightly["night_of"].dt.to_period("M").astype(str)
-        s = nightly.groupby(month).apply(_summary)
-        s.loc["all"] = _summary(nightly)
+        s = nightly.groupby(month).apply(_summary, whole_night=whole_night)
+        s.loc["all"] = _summary(nightly, whole_night)
         summaries.append(s.rename_axis("month").reset_index().assign(group=group))
         nightly_all.append(nightly)
     summary = pd.concat(summaries)[["group", "month"] + list(_summary(nightly_all[0]).index)]
