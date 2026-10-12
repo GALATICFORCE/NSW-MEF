@@ -6,7 +6,8 @@
 
 分组（10-11 定）：
 - all：全部小时，MAE、regret、Spearman
-- nonbatt：只算 MAE，只用 nonbatt 占多数的小时（regret / Spearman 去掉部分小时就成了另一个调度问题）
+- nonbatt：只算 MAE，只用 nonbatt 占多数的小时（12 个区间里 nonbatt 不少于 7 个），其中仍可能有电池填补的区间
+  （regret / Spearman 去掉部分小时就成了另一个调度问题）
 - batt_share_high / batt_share_low：按夜的电池定价占比（status ∈ {batt, mixed} 的 5 分钟占比）
   在 split 内按中位数分两半，整夜算 MAE、regret、Spearman；占比等于中位数的夜归 low
 """
