@@ -25,6 +25,7 @@ Code for the MEF part of an ENGG2112 group project: *Forecasting Hourly Marginal
 6. **Forecast model and label diagnostics** (training and validation nights only).
    - `python src/features.py` builds the feature table.
    - `python src/ridge.py` fits and evaluates the Ridge model.
+   - `python src/hgb.py` fits and evaluates the gradient-boosting model and compares all forecasts.
    - `python src/label_diagnostics.py` compares the A, B, C and C-fwd labels.
 7. **AEI.** `python src/build_aei_5min.py` builds the NSW1 5-minute AEI. `src/aei_trial.py` is the one-day check that led to this method.
 
