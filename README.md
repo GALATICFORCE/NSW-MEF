@@ -4,6 +4,8 @@ Code for the MEF part of an ENGG2112 group project: *Forecasting Hourly Marginal
 
 ## Layout
 - `src/`: all scripts (run from the repository root)
+- `scheduler/`: Oscar’s part, the scheduler and the emissions/cost evaluation (owner stated in its README)
+- `data_prep/`: Otis’s part, the AEI and price hourly tables with the data dictionary and quality report
 - `docs/label_rules_v1.md`: the frozen labelling rules, including how battery-set intervals are treated (git tag `label-rules-v1`)
 - `docs/aei_method_note.md`: plain-language AEI method note
 - `outputs/`: validation reports, the night split and metric tables
