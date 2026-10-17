@@ -1,0 +1,22 @@
+train+val features rebuilt with the full-year lookup: 3952 rows, max diff 1.1e-16
+train-only fit: metrics and coefficients identical to Step 4 (outputs/metrics_val_ridge-v1.csv)
+test-night features: 689 rows, 53 nights, NaN in features 0, lag1_same_hour D-2 fallback 0, two-hour mean 0
+train+val refit: 3952 training rows (3249 train + 703 val), 0 test rows; two fits give identical predictions
+
+== top 10 |coef| of the train+val refit (lag features standardised on train+val)
+               feature  coef_train  coef_trainval
+               hour_18     -0.0697        -0.0647
+               hour_19     -0.0602        -0.0597
+lag2to7_same_hour_mean      0.0518         0.0522
+               hour_20     -0.0471        -0.0466
+               hour_04      0.0483         0.0454
+               hour_02      0.0430         0.0425
+               hour_03      0.0428         0.0413
+               hour_21     -0.0399        -0.0412
+        lag1_same_hour      0.0379         0.0325
+               hour_01      0.0319         0.0312
+
+data/processed/mef_forecast_C_rules-v1_ridge-v1.csv: 1392 rows | NaN mef_pred 0 | hour_start_nem unique True
+  val: 54 nights, 703 rows, 2026-03-15 -> 2026-05-07, hours per night {13: 53, 14: 1}
+  test: 53 nights, 689 rows, 2026-05-08 -> 2026-06-29, hours per night {13: 53}
+  columns: ['night_of', 'hour_start_sydney', 'hour_start_nem', 'mef_pred', 'label', 'rules', 'model', 'split']
