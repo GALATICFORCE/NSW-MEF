@@ -35,9 +35,13 @@ def assert_before_issue(src_latest, night_of, name):
         f"{name} uses data from D 00:00 or later"
 
 
-def build(df):
-    """df = nights.night_hours 的输出（列 value 为 C 标签）；返回特征表和 lag1_same_hour 的夏令时处理记录"""
-    hourly = lookup_hourly()
+def build(df, hourly=None):
+    """df = nights.night_hours 的输出（列 value 为 C 标签）；返回特征表和 lag1_same_hour 的夏令时处理记录
+
+    hourly = 滞后特征的查找表，默认只含测试期之前的小时；Step 5 给 test 夜建特征时传入全年小时表。
+    """
+    if hourly is None:
+        hourly = lookup_hourly()
     d1 = df["night_of"] - DAY
     hour = df["hour_start_sydney"].dt.hour
 
