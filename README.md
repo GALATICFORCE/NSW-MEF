@@ -29,6 +29,7 @@ Code for the MEF part of an ENGG2112 group project: *Forecasting Hourly Marginal
    - `python src/ridge.py` fits and evaluates the Ridge model.
    - `python src/hgb.py` fits and evaluates the gradient-boosting model and compares all forecasts.
    - `python src/label_diagnostics.py` compares the A, B, C and C-fwd labels.
+   - `python src/error_analysis.py` breaks down the validation errors by hour and month, by the amount of battery filling, and by the training/validation gap.
 7. **Forecast file.** `python src/forecast.py` writes `data/processed/mef_forecast_C_rules-v1_ridge-v1.csv` for the validation and test nights. Validation nights use the Ridge model fitted on training nights; test nights use the same settings refitted on training and validation nights. No metric is computed on test nights.
 8. **AEI.** `python src/build_aei_5min.py` builds the NSW1 5-minute AEI. `src/aei_trial.py` is the one-day check that led to this method.
 

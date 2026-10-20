@@ -7,8 +7,9 @@ outputs/model_compare-v1.csv 相同，再做三件事：
 - Q2 按每小时电池填补的区间个数分四箱；mae_hour_adj = |误差| − 该模型在该 split、该悉尼小时的平均 |误差|，按箱取均值
 - Q3 train / val 差距；val 上逐小时 d = |err_hgb| − |err_ridge|，95% 区间按夜整夜重抽
 
-热图格子和填补箱的 mae、mean_d 是小时直接平均（一个格子 / 一个箱不是整夜）；train_val_gap 先按夜算再平均，
-和 model_compare 一致。
+热图格子和填补箱的 mae、pure_hours_paired 的 mean_d 是小时直接平均（一个格子 / 一个箱不是整夜）；
+train_val_gap 和 pure_hours_paired_nightavg 先按夜算再平均，和 model_compare 一致（nightavg 是 10-20 看过
+结果后补算的，两种口径都报）。
 
 用法：python src\\error_analysis.py   （先运行 features.py）
 """
@@ -39,6 +40,7 @@ OUT_FILL = "outputs/error_by_fill-v1.csv"
 OUT_FILL_COUNTS = "outputs/fill_by_hour_counts-v1.csv"
 OUT_GAP = "outputs/train_val_gap-v1.csv"
 OUT_PAIRED = "outputs/pure_hours_paired-v1.csv"
+OUT_PAIRED_NIGHT = "outputs/pure_hours_paired_nightavg-v1.csv"
 FIG_HEATMAP = "outputs/fig_error_heatmap-v1.png"
 FIG_FILL = "outputs/fig_error_by_fill-v1.png"
 FIG_GAP = "outputs/fig_train_val_gap-v1.png"
@@ -225,24 +227,30 @@ def q3_gap(check):
 
 
 def q3_paired(long):
+    """返回两张表，列相同、用同一组整夜重抽：
+    pooled = 抽中夜的小时合在一起求平均；nightavg = 每夜先求平均再对夜平均（和 model_compare 的 mae_pure 同口径，
+    10-20 看过 Step 6 结果后由 Kunyu 定补算）"""
     v = long[long["split"] == "val"]
     wide = v.pivot_table(index=["night_of", "hour_start_nem", "n_battfill"], columns="model",
                          values="abs_err").reset_index()
     wide["d"] = wide["hgb-v1"] - wide["ridge-v1"]
-    rows, night_avg = [], {}
+    rows = {"pooled": [], "nightavg": []}
     for subset, sub in [("pure", wide[wide["n_battfill"] == 0]), ("all", wide)]:
         per = sub.groupby("night_of")["d"].agg(["sum", "size"])
         s, n = per["sum"].to_numpy(), per["size"].to_numpy()
+        night_mean = s / n
         rng = np.random.default_rng(0)
         idx = rng.integers(0, len(per), size=(N_BOOT, len(per)))
-        boot = s[idx].sum(axis=1) / n[idx].sum(axis=1)       # 整夜重抽后，按小时求平均
-        lo, hi = np.percentile(boot, [2.5, 97.5])
+        boots = {"pooled": s[idx].sum(axis=1) / n[idx].sum(axis=1),      # 整夜重抽后，按小时求平均
+                 "nightavg": night_mean[idx].mean(axis=1)}               # 整夜重抽后，对夜求平均
         d = sub["d"].to_numpy()
-        rows.append({"subset": subset, "n_hours": len(sub), "n_nights": len(per), "mean_d": d.mean(),
-                     "ci_low": lo, "ci_high": hi, "n_hgb_worse": int((d > 1e-9).sum()),
-                     "n_equal": int((np.abs(d) < 1e-9).sum()), "n_hgb_better": int((d < -1e-9).sum())})
-        night_avg[subset] = (per["sum"] / per["size"]).mean()
-    return pd.DataFrame(rows), night_avg
+        centre = {"pooled": d.mean(), "nightavg": night_mean.mean()}
+        for kind, boot in boots.items():
+            lo, hi = np.percentile(boot, [2.5, 97.5])
+            rows[kind].append({"subset": subset, "n_hours": len(sub), "n_nights": len(per), "mean_d": centre[kind],
+                               "ci_low": lo, "ci_high": hi, "n_hgb_worse": int((d > 1e-9).sum()),
+                               "n_equal": int((np.abs(d) < 1e-9).sum()), "n_hgb_better": int((d < -1e-9).sum())})
+    return pd.DataFrame(rows["pooled"]), pd.DataFrame(rows["nightavg"])
 
 
 def q3_figure(gap):
@@ -314,11 +322,13 @@ if __name__ == "__main__":
 
     gap = q3_gap(check)
     gap.to_csv(OUT_GAP, index=False)
-    paired, night_avg = q3_paired(long)
+    paired, paired_night = q3_paired(long)
     paired.to_csv(OUT_PAIRED, index=False)
+    paired_night.to_csv(OUT_PAIRED_NIGHT, index=False)
     q3_figure(gap)
     print(f"\n== Q3 ({OUT_GAP}, {OUT_PAIRED})")
     print(gap.round(4).to_string(index=False))
     print(paired.round(4).to_string(index=False))
-    print("mean_d is pooled over hours; the per-night average of d (same definition as the mae_pure difference "
-          f"in {COMPARE}) is pure {night_avg['pure']:.4f}, all {night_avg['all']:.4f}")
+    print(f"same d averaged per night first, then over nights ({OUT_PAIRED_NIGHT}; "
+          f"same definition as the mae_pure difference in {COMPARE}):")
+    print(paired_night.round(4).to_string(index=False))
