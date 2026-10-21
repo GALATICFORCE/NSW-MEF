@@ -43,8 +43,8 @@ gantt
     section Otis - AEI and price data
     Price data download and validation :done, 2026-10-10, 2026-10-13
     AEI and price hourly tables :done, 2026-10-13, 2026-10-14
-    Data dictionary and quality report :crit, active, 2026-10-12, 2026-10-22
-    Push files to data_prep/ :active, 2026-10-21, 2026-10-22
+    Data dictionary and quality report :done, 2026-10-12, 2026-10-22
+    Files into data_prep/ :done, 2026-10-21, 2026-10-22
     Report 4.1 (AEI and price) draft :2026-10-22, 2026-10-27
     section Oscar - scheduler and evaluation
     Scheduler and night slicer :done, 2026-10-12, 2026-10-15
@@ -63,6 +63,6 @@ gantt
 <!-- MERMAID:END -->
 
 ## Notes
-- **Dates after 21 October are proposed**, pending team agreement (in particular Oscar's round-2 deadline of 23 October).
+- **Dates after 21 October are proposed**, pending team agreement.
 - **Status meanings:** *done (late)* = finished after its planned end; *late* = planned end has passed and the item is not yet received; *in progress* = started, planned end not yet passed.
 - ML results are frozen under the git tag `results-v1`; anything run after the freeze goes to the report appendix only.

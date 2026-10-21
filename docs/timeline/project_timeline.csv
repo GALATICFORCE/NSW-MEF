@@ -21,8 +21,8 @@ Kunyu: MEF labels and forecast,5.3 table and figures to report,2026-10-21,2026-1
 Kunyu: MEF labels and forecast,"Report 4.1 (MEF labels), 4.2, 4.3 drafts",2026-10-22,2026-10-26,,,planned,
 Otis: AEI and price data,Price data download and validation,2026-10-10,2026-10-11,2026-10-10,2026-10-12,done,CONTRIBUTIONS 12 Oct
 Otis: AEI and price data,AEI and price hourly tables,2026-10-12,2026-10-12,2026-10-13,2026-10-13,done_late,accepted 13 Oct
-Otis: AEI and price data,Data dictionary and quality report,2026-10-12,2026-10-14,2026-10-12,,late,not yet received
-Otis: AEI and price data,Push files to data_prep/,2026-10-21,2026-10-21,2026-10-21,,in_progress,invite re-sent 21 Oct
+Otis: AEI and price data,Data dictionary and quality report,2026-10-12,2026-10-14,2026-10-12,2026-10-21,done_late,data_prep/docs (received 21 Oct)
+Otis: AEI and price data,Files into data_prep/,2026-10-21,2026-10-21,2026-10-21,2026-10-21,done,committed by Kunyu 21 Oct
 Otis: AEI and price data,Report 4.1 (AEI and price) draft,2026-10-22,2026-10-26,,,planned,
 Oscar: scheduler and evaluation,Scheduler and night slicer,2026-10-12,2026-10-14,2026-10-12,2026-10-14,done,scheduler/scheduler.ipynb
 Oscar: scheduler and evaluation,"Round 1: actual signals, 364 nights",2026-10-14,2026-10-14,2026-10-14,2026-10-14,done,CONTRIBUTIONS 12 Oct

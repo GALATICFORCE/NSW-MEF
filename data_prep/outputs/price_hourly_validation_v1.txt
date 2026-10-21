@@ -1,0 +1,30 @@
+Raw rows: 105,120 (expected 105,120)
+Hourly rows: 8,760 (expected 8,760)
+First NEM hour: 2025-07-01 00:00:00
+Last NEM hour: 2026-06-30 23:00:00
+Duplicate NEM hours: 0
+Missing expected NEM hours: 0
+Unexpected NEM hours: 0
+Raw hours not containing 12 intervals: 0
+Sydney dates: 365 (expected 365)
+Unusual Sydney-date hour counts: 2025-10-05=23, 2026-04-05=25
+Missing hourly values: 0
+Empty values with six or more valid intervals: 0
+
+Monthly price summary (AUD/MWh):
+  month  rows  missing_values    minimum   median    maximum
+2025-07   744               0  -21.53434 84.14410  368.98443
+2025-08   744               0  -24.30828 87.26766  691.87471
+2025-09   720               0  -36.79743 69.12924  562.29800
+2025-10   744               0  -77.35196 69.98203 2000.31935
+2025-11   720               0 -318.57448 64.78062 5348.56764
+2025-12   744               0  -51.71993 59.46263 4238.78734
+2026-01   744               0  -17.59639 56.81040 6241.94036
+2026-02   672               0  -12.40559 67.47810 3311.38818
+2026-03   744               0   -8.85073 72.82035  160.43024
+2026-04   720               0  -16.26093 66.92286  173.04673
+2026-05   744               0   -3.02828 77.32124  284.60131
+2026-06   720               0   -2.17548 76.32872  299.98417
+
+Outlier note: Negative and high prices were flagged for review but retained,
+because both can be valid outcomes in the NEM wholesale market.

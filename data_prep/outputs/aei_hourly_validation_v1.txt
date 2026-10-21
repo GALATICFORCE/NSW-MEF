@@ -1,0 +1,47 @@
+Raw rows: 105,120 (expected 105,120)
+Input columns: ['TimeEnding', 'Energy_SO', 'Total_Emissions', 'aei']
+Missing required columns: []
+First timestamp: 2025-07-01 00:05:00
+Last timestamp: 2026-07-01 00:00:00
+Duplicate raw timestamps: 0
+Missing expected raw timestamps: 0
+Unexpected raw timestamps: 0
+Missing raw values: aei=0, Total_Emissions=0, TimeEnding=0, Energy_SO=0
+Non-positive Energy_SO rows: 0
+Maximum |aei - Total_Emissions/Energy_SO|: 2.220e-16
+Formula mismatches above 1e-12: 0
+Raw AEI range: 0.213904 to 0.863899 tCO2-e/MWh
+
+Hourly rows: 8,760 (expected 8,760)
+First NEM hour: 2025-07-01 00:00:00
+Last NEM hour: 2026-06-30 23:00:00
+Duplicate NEM hours: 0
+Missing expected NEM hours: 0
+Unexpected NEM hours: 0
+Raw hours not containing 12 rows: 0
+Sydney dates: 365 (expected 365)
+Unusual Sydney-date hour counts: 2025-10-05=23, 2026-04-05=25
+Missing hourly values: 0
+Empty values with six or more valid intervals: 0
+Hourly values outside 0 to 1.2 tCO2-e/MWh: 0
+Hourly NEM keys exactly match price table: True
+
+Monthly AEI summary (tCO2-e/MWh):
+  month  rows  missing_values  minimum   median  maximum
+2025-07   744               0 0.348029 0.651326 0.839509
+2025-08   744               0 0.262141 0.642629 0.843407
+2025-09   720               0 0.259064 0.620305 0.839175
+2025-10   744               0 0.222113 0.568343 0.842129
+2025-11   720               0 0.224085 0.551207 0.829669
+2025-12   744               0 0.244010 0.538985 0.829286
+2026-01   744               0 0.259210 0.562472 0.847810
+2026-02   672               0 0.262511 0.607486 0.841011
+2026-03   744               0 0.317407 0.663397 0.858832
+2026-04   720               0 0.286712 0.636640 0.842834
+2026-05   744               0 0.323643 0.663018 0.862241
+2026-06   720               0 0.333554 0.636980 0.828116
+
+Upstream missing-emissions-factor treatment (from outputs/aei_build_v1.txt):
+CG2, CG4 and ERGT01 were excluded from both emissions and energy totals.
+They had output in 1,536 of 105,120 intervals and supplied 13,680.8 MWh,
+equal to 0.02282% of NSW1 generator sent-out energy.

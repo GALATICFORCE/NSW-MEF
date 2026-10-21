@@ -8,6 +8,7 @@ Code for the MEF part of an ENGG2112 group project: *Forecasting Hourly Marginal
 - `data_prep/`: Otis’s part, the AEI and price hourly tables with the data dictionary and quality report
 - `docs/label_rules_v1.md`: the frozen labelling rules, including how battery-set intervals are treated (git tag `label-rules-v1`)
 - `docs/aei_method_note.md`: plain-language AEI method note
+- `docs/model_selection.md`: the selection and evaluation rules, with when each was fixed
 - `docs/timeline/`: team Gantt chart, planned vs actual (`project_timeline.md`; edit the CSV and run `make_timeline.py` to update)
 - `outputs/`: validation reports, the night split and metric tables
 - `data/`: generated data, not in the repository (see below)
