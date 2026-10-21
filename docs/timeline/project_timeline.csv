@@ -1,0 +1,36 @@
+section,task,planned_start,planned_end,actual_start,actual_end,status,evidence
+Team,Proposal AI declarations submitted,2026-10-06,2026-10-06,2026-10-06,2026-10-06,milestone_done,Canvas
+Team,Kick-off: design and roles agreed,2026-10-07,2026-10-07,2026-10-07,2026-10-07,milestone_done,meeting 7 Oct
+Team,Checkpoint: label tables and round-1 inputs,2026-10-14,2026-10-14,2026-10-14,2026-10-14,milestone_done,meeting 14 Oct
+Team,Checkpoint: ML results frozen,2026-10-21,2026-10-21,2026-10-20,2026-10-20,milestone_done,tag results-v1
+Team,Checkpoint: full draft review,2026-10-28,2026-10-28,,,milestone_planned,
+Team,Final report due,2026-11-01,2026-11-01,,,milestone_planned,
+Team,Individual Q&A,2026-11-04,2026-11-04,,,milestone_planned,
+Kunyu: MEF labels and forecast,"Environment, MEF download, 5-minute table",2026-10-04,2026-10-05,2026-10-04,2026-10-05,done,ef0a82a
+Kunyu: MEF labels and forecast,Label rules v1 frozen,2026-10-05,2026-10-05,2026-10-05,2026-10-05,done,tag label-rules-v1
+Kunyu: MEF labels and forecast,Hourly MEF label tables (A/B/C/C-fwd),2026-10-06,2026-10-12,2026-10-06,2026-10-07,done,"c67ffbe, b8eeb14; sent to Oscar 12 Oct"
+Kunyu: MEF labels and forecast,"Night split, metrics, baselines",2026-10-08,2026-10-09,2026-10-07,2026-10-11,done,"02ab8dc, c73573f"
+Kunyu: MEF labels and forecast,Full-year 5-minute AEI for Otis,2026-10-10,2026-10-11,2026-10-11,2026-10-11,done,a98ad68
+Kunyu: MEF labels and forecast,Ridge model (validation),2026-10-12,2026-10-13,2026-10-11,2026-10-11,done,0a4f709
+Kunyu: MEF labels and forecast,Label diagnostics,,,2026-10-11,2026-10-12,done,5f5da9d (added after Ridge results)
+Kunyu: MEF labels and forecast,Gradient-boosting model (validation),2026-10-12,2026-10-14,2026-10-12,2026-10-12,done,22ca5b4 (not selected)
+Kunyu: MEF labels and forecast,Forecast file to Oscar,2026-10-14,2026-10-15,2026-10-15,2026-10-17,done_late,"b17f595, e4968f4"
+Kunyu: MEF labels and forecast,Error analysis (validation),2026-10-19,2026-10-20,2026-10-19,2026-10-20,done,c33bc97
+Kunyu: MEF labels and forecast,Test-set evaluation (run once),2026-10-21,2026-10-21,2026-10-20,2026-10-20,done,"8cffa41, 0c6ca64"
+Kunyu: MEF labels and forecast,5.3 table and figures to report,2026-10-21,2026-10-22,2026-10-21,,in_progress,
+Kunyu: MEF labels and forecast,"Report 4.1 (MEF labels), 4.2, 4.3 drafts",2026-10-22,2026-10-26,,,planned,
+Otis: AEI and price data,Price data download and validation,2026-10-10,2026-10-11,2026-10-10,2026-10-12,done,CONTRIBUTIONS 12 Oct
+Otis: AEI and price data,AEI and price hourly tables,2026-10-12,2026-10-12,2026-10-13,2026-10-13,done_late,accepted 13 Oct
+Otis: AEI and price data,Data dictionary and quality report,2026-10-12,2026-10-14,2026-10-12,,late,not yet received
+Otis: AEI and price data,Push files to data_prep/,2026-10-21,2026-10-21,2026-10-21,,in_progress,invite re-sent 21 Oct
+Otis: AEI and price data,Report 4.1 (AEI and price) draft,2026-10-22,2026-10-26,,,planned,
+Oscar: scheduler and evaluation,Scheduler and night slicer,2026-10-12,2026-10-14,2026-10-12,2026-10-14,done,scheduler/scheduler.ipynb
+Oscar: scheduler and evaluation,"Round 1: actual signals, 364 nights",2026-10-14,2026-10-14,2026-10-14,2026-10-14,done,CONTRIBUTIONS 12 Oct
+Oscar: scheduler and evaluation,"Round 2: forecast on test nights (B, C, C-fwd)",2026-10-17,2026-10-19,2026-10-17,2026-10-21,done_late,"6db090c, 0355c46, 879aa3a"
+Oscar: scheduler and evaluation,"Report 4.4, figures for 5.1-5.2",2026-10-23,2026-10-26,,,planned,
+Ciyue: report,Report requirements and outline v1,2026-10-06,2026-10-14,2026-10-06,2026-10-11,done,outline tab
+Ciyue: report,Review of mechanism note and limitations,2026-10-13,2026-10-14,2026-10-13,2026-10-14,done,CONTRIBUTIONS 12 Oct
+Ciyue: report,Outline revised after freeze,2026-10-21,2026-10-21,2026-10-21,2026-10-21,done,outline tab (21 Oct)
+Ciyue: report,"Sections 1-3, 4.5, 5 integration, 6-7",2026-10-22,2026-10-27,,,planned,
+All: final report,Full draft review and revision,2026-10-28,2026-10-31,,,planned,
+All: final report,"Executive summary, references, AI-use appendix",2026-10-28,2026-10-31,,,planned,
