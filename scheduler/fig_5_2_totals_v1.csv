@@ -1,0 +1,5 @@
+strategy,nights,emissions_kg_B,emissions_kg_C,emissions_kg_Cfwd,cost_aud,emissions_kg_B_pct_vs_fixed,emissions_kg_C_pct_vs_fixed,emissions_kg_Cfwd_pct_vs_fixed,cost_aud_pct_vs_fixed
+fixed,364,1646.25,1696.28,2072.73,426.36,0.0,0.0,0.0,0.0
+mef_oracle,364,1448.8,1345.03,1722.46,368.95,-12.0,-20.7,-16.9,-13.5
+aei,364,1904.79,1952.4,2151.36,388.08,15.7,15.1,3.8,-9.0
+price,364,2321.67,2274.11,2306.7,250.2,41.0,34.1,11.3,-41.3
