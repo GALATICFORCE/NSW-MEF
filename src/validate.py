@@ -1,6 +1,7 @@
-"""结构检查：5 分钟全表、5 分钟标签、小时表。只报行数、NaN 个数和 PASS/FAIL，不输出 MEF 数值统计
+"""Structural checks: 5-minute full table, 5-minute labels, hourly tables. Reports only row counts, NaN counts and
+PASS/FAIL, no MEF value statistics
 
-用法：python src\\validate.py --labels A
+Usage: python src\\validate.py --labels A
 """
 import argparse
 import sys
@@ -13,7 +14,7 @@ from labels import LABELS, OUT as LABELS_FILE, is_source, load_full, nan_mask, n
 
 EXPECTED_NAN_5MIN = 647
 EXPECTED_SOURCES = 70_731
-# 档位列 -> 适用的电池方向（规则第 5 节）
+# tier column -> battery direction it applies to (rules section 5)
 TIER_COLS = {"tier_B": ["charge", "discharge", "both"], "tier_C_gen": ["discharge", "both"],
              "tier_C_load": ["charge", "both"], "tier_Cfwd_gen": ["discharge", "both"]}
 TIER_FOR = {"B": ["tier_B"], "C": ["tier_C_gen", "tier_C_load"], "Cfwd": ["tier_Cfwd_gen", "tier_C_load"]}

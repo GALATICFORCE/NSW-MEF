@@ -1,19 +1,24 @@
-"""Step 7：冻结——测试集只跑一次（交接文档 10-20 版 §7）
+"""Step 7: freeze - the test set is run only once (hand-off doc 10-20 version §7)
 
-整个项目里只有这个脚本对 test 夜的真实标签算指标。没有命令行参数，模型、特征、alpha、对照全部写死：
-- ridge-v1：直接读交给 Oscar 的 outputs/mef_forecast_C_rules-v1_ridge-v1.csv 的 test 行；
-  另按 Step 5（train + val 重拟合、alpha 100）重算一遍，断言逐值相同
-- hgb-v1（未被选中，只为报告完整）：同一组参数在 train + val 上重拟合
-- hourmean：train + val 夜的同小时均值；fixed：18–21 点；yesterday、weekmean：现成特征列；oracle_C：真实 C 标签
+This is the only script in the project that computes metrics on the true labels of the test nights. No command-line
+arguments; model, features, alpha and comparisons are all hard-coded:
+- ridge-v1: reads the test rows of outputs/mef_forecast_C_rules-v1_ridge-v1.csv, the file given to Oscar;
+  also recomputes them as in Step 5 (refit on train + val, alpha 100) and asserts they are identical value by value
+- hgb-v1 (not selected, included only for completeness of the report): the same parameters refitted on train + val
+- hourmean: mean of the same hour over train + val nights; fixed: hours 18–21; yesterday, weekmean: existing feature
+  columns; oracle_C: the true label C
 
-顺序：
-1. 保护：日志或任何输出已存在、src/ 和 HEAD 不一致、HEAD 不是 commit A、预测记录文件为空 —— 直接退出，什么都不写
-2. 解盲前的回归检查（只用 train + val）：同一套评估函数在 val 上必须逐值复现已提交的 val 输出；
-   对不上就退出，此时还没读 test 标签，也还没建日志
-3. 独占创建日志：运行时间、commit A、预测文件 SHA-256、Kunyu 的预测原文；然后解盲、算指标、写输出和图
-4. 日志末尾写 "single run completed" 和每个输出文件的 SHA-256
+Order:
+1. Guards: if the log or any output already exists, src/ differs from HEAD, HEAD is not commit A, or the predictions
+   record file is empty - exit at once, writing nothing
+2. Regression check before unblinding (train + val only): the same evaluation functions must reproduce the committed
+   val outputs value by value on val; if not, exit - the test labels have not been read and no log exists yet
+3. Create the log exclusively: run time, commit A, SHA-256 of the forecast file, Kunyu's predictions verbatim; then
+   unblind, compute the metrics, write the outputs and figures
+4. At the end of the log, write "single run completed" and the SHA-256 of every output file
 
-用法：python src\\test_eval.py   （只运行一次；先把 Kunyu 的预测原文写进 outputs\\test_run_predictions-v1.txt）
+Usage: python src\\test_eval.py   (run only once; first write Kunyu's predictions verbatim into
+outputs\\test_run_predictions-v1.txt)
 """
 import hashlib
 import os
@@ -21,7 +26,7 @@ import subprocess
 import sys
 from datetime import datetime
 
-import error_analysis as ea  # noqa: I001  先导入：带来 Step 6 的画图设置（Agg）、颜色、long_errors()
+import error_analysis as ea  # noqa: I001  imported first: brings in Step 6's plot settings (Agg), colours and long_errors()
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -43,7 +48,7 @@ TOL = 1e-12
 COMMIT_A_SUBJECT = "Step 7 script, not yet run"
 N_TEST_NIGHTS, N_TEST_HOURS = 53, 689
 
-DEPLOYABLE = ["hourmean", "yesterday", "weekmean", "ridge-v1", "hgb-v1"]          # model_compare 的行
+DEPLOYABLE = ["hourmean", "yesterday", "weekmean", "ridge-v1", "hgb-v1"]          # rows of model_compare
 NIGHTLY_STRATS = ["fixed", "hourmean", "yesterday", "weekmean", "ridge-v1", "hgb-v1"]
 CROSS_STRATS = NIGHTLY_STRATS + ["oracle_C"]
 FIG_STRATS = ["fixed", "hourmean", "yesterday", "weekmean", "ridge-v1", "hgb-v1"]
@@ -65,7 +70,8 @@ FIG_PAIRED = "outputs/fig_test_paired_regret-v1.png"
 OUTPUTS = [LOG, *OUT_METRICS.values(), OUT_COMPARE, OUT_CROSS, OUT_NIGHTLY, OUT_PAIRED, OUT_FILL, OUT_BIAS,
            FIG_COMPARE, FIG_PAIRED]
 
-# 已提交的 val 输出：解盲前的回归检查用，也是 _test 表里 val 对照行的来源（复制，不重算）
+# Committed val outputs: used for the regression check before unblinding, and the source of the val comparison
+# rows in the _test tables (copied, not recomputed)
 REF_METRICS_VAL = {"ridge-v1": "outputs/metrics_val_ridge-v1.csv", "hgb-v1": "outputs/metrics_val_hgb-v1.csv",
                    "hourmean": "outputs/metrics_val_hourmean-v2.csv",
                    "yesterday": "outputs/metrics_val_yesterday-v2.csv",
@@ -77,11 +83,12 @@ REF_PAIRED = "outputs/paired_regret-v1.csv"
 REF_FILL = "outputs/error_by_fill-v1.csv"
 REF_HOUR_MONTH = "outputs/error_by_hour_month-v1.csv"
 
-COLORS = {**ea.COLORS, "yesterday": "#e87ba4", "fixed": "#008300"}   # 分类色第 5、6 槽给 yesterday、fixed
+COLORS = {**ea.COLORS, "yesterday": "#e87ba4", "fixed": "#008300"}   # categorical colour slots 5 and 6 go to yesterday and fixed
 
 
 class RunLog:
-    """打印到屏幕；建日志之前先缓存，建日志时一起写进去，之后边打印边写"""
+    """Prints to screen; output is buffered until the log is created and written into it then,
+    after which each line is printed and written at the same time"""
 
     def __init__(self):
         self.buffer, self.fh = [], None
@@ -96,7 +103,7 @@ class RunLog:
             self.fh.flush()
 
     def open(self, header):
-        self.fh = open(LOG, "x", encoding="utf-8", newline="\n")       # "x"：文件已存在就报错，绝不覆盖
+        self.fh = open(LOG, "x", encoding="utf-8", newline="\n")       # "x": raises if the file already exists, never overwrites
         self.fh.write(header + "\n")
         self.fh.write("\n".join(self.buffer) + "\n")
         self.fh.flush()
@@ -116,7 +123,7 @@ def git(*args):
 
 
 def guard():
-    """任何一条不满足就退出，什么都不写"""
+    """Exit if any check fails, writing nothing"""
     if os.path.exists(LOG):
         sys.exit(f"STOP: {LOG} already exists. Step 7 runs once; nothing was written.")
     existing = [p for p in OUTPUTS if os.path.exists(p)]
@@ -142,7 +149,8 @@ def with_status(df):
 
 
 def label_truths(df, splits):
-    """真实值 C 就是 truth 列；B、C-fwd 按 hour_start_nem 取对应的小时表（模型不重训，只换计分的尺子）"""
+    """Truth C is the truth column; B and C-fwd are taken from their hourly tables by hour_start_nem
+    (models are not retrained; only the scoring yardstick changes)"""
     truths = {"C": df["truth"]}
     for lab in ["B", "Cfwd"]:
         h = night_hours(lab, splits).set_index("hour_start_nem")["value"]
@@ -155,9 +163,9 @@ def fixed_pred(df):
     return pd.Series(np.where(df["hour_start_sydney"].dt.hour.isin(FIXED_HOURS), 0.0, 1.0), index=df.index)
 
 
-# ---------- 评估函数（val 回归检查和 test 用的是同一组）
+# ---------- Evaluation functions (the same ones are used for the val regression check and for test)
 def compare_rows(sub, preds, truths, split):
-    """同 hgb.compare，一次一个 split"""
+    """As hgb.compare, one split at a time"""
     rows = []
     pure = sub["n_battfill"] == 0
     for name in DEPLOYABLE:
@@ -182,7 +190,7 @@ def compare_rows(sub, preds, truths, split):
 
 
 def nightly_rows(sub, preds, truths, split, strategies):
-    """同 hgb.nightly：每夜 regret，split × 真实标签 × 策略"""
+    """As hgb.nightly: regret per night, split × truth label × strategy"""
     rows = []
     for truth in TRUTHS:
         for name in strategies:
@@ -192,7 +200,7 @@ def nightly_rows(sub, preds, truths, split, strategies):
 
 
 def crosslabel_rows(sub, preds, truths, split, strategies):
-    """同 label_diagnostics.crosslabel：每夜最优排放参照 + 各策略 regret"""
+    """As label_diagnostics.crosslabel: per-night optimal emissions reference + regret of each strategy"""
     rows = []
     for truth in TRUTHS:
         optimal = sub.assign(t=truths[truth]).groupby("night_of")["t"].apply(
@@ -207,7 +215,7 @@ def crosslabel_rows(sub, preds, truths, split, strategies):
 
 
 def fill_rows(long, split):
-    """同 Step 6 Q2，只取 ridge-v1"""
+    """As Step 6 Q2, ridge-v1 only"""
     r = long[(long["split"] == split) & (long["model"] == "ridge-v1")]
     g = r.groupby("fill_bin").agg(n_hours=("abs_err", "size"), n_nights=("night_of", "nunique"),
                                   mae=("abs_err", "mean"), mae_hour_adj=("abs_err_hour_adj", "mean"))
@@ -223,7 +231,7 @@ def bias_rows(long, split):
 
 
 def val_bias_from_step6():
-    """Step 6 的 val bias（按月的表合并成按小时）：复制已有结果，不重算"""
+    """Step 6 val bias (the by-month table combined into by-hour): copies existing results, does not recompute"""
     t = pd.read_csv(REF_HOUR_MONTH)
     v = t[t["split"] == "val"].assign(w=lambda x: x["bias"] * x["n_hours"])
     g = v.groupby("hour_sydney").agg(w=("w", "sum"), n_hours=("n_hours", "sum"))
@@ -231,7 +239,7 @@ def val_bias_from_step6():
 
 
 def same(new, ref, keys, what):
-    """逐值比较：键相同、数值列差 < TOL、空值位置相同、文字列相同"""
+    """Value-by-value comparison: same keys, numeric columns differ by < TOL, nulls in the same places, text columns equal"""
     new = new.sort_values(keys).reset_index(drop=True)
     ref = ref.sort_values(keys).reset_index(drop=True)
     assert len(new) == len(ref) and new[keys].astype(str).equals(ref[keys].astype(str)), f"{what}: rows differ"
@@ -252,7 +260,7 @@ def same(new, ref, keys, what):
 
 
 def val_checks(tv, log):
-    """解盲前：同一组评估函数在 val 上逐值复现已提交的输出"""
+    """Before unblinding: the same evaluation functions reproduce the committed outputs on val value by value"""
     train = tv["split"] == "train"
     ridge = make_model(FEATURES, RIDGE_ALPHA).fit(tv.loc[train, FEATURES], tv.loc[train, "y"])
     preds = {"ridge-v1": pd.Series(ridge.predict(tv[FEATURES]), index=tv.index),
@@ -296,7 +304,7 @@ def val_checks(tv, log):
         log(f"  {k:28s} max diff {d:.1e}  PASS")
 
 
-# ---------- 图
+# ---------- Figures
 def light(hex_color, t=0.55):
     rgb = np.array([int(hex_color[i:i + 2], 16) for i in (1, 3, 5)]) / 255
     return tuple(rgb + (1 - rgb) * t)
@@ -334,7 +342,7 @@ def fig_compare(comp_test, comp_val, cross_test, cross_val, path):
 
 
 def fig_paired(pr, n_nights, path):
-    fig, axes = plt.subplots(1, 3, figsize=(12, 3.8), sharey=True, sharex=True)   # 三种标签同一刻度，可直接比
+    fig, axes = plt.subplots(1, 3, figsize=(12, 3.8), sharey=True, sharex=True)   # same scale for the three labels so they can be compared directly
     labels = [f"{s} − {r}" for s, r in PAIRS]
     for ax, truth in zip(axes, TRUTHS):
         sub = pr[pr["truth"] == truth].set_index(["strategy", "reference"])
@@ -359,11 +367,11 @@ def fig_paired(pr, n_nights, path):
     plt.close(fig)
 
 
-# ---------- 解盲之后
+# ---------- After unblinding
 def test_frame(tv, log):
     hourly = load_hourly("C")
     test_hours = night_hours("C", ("test",))
-    feats, fallback, doubled = build(test_hours, hourly=hourly)        # 四条防泄漏 assert 照样逐行跑
+    feats, fallback, doubled = build(test_hours, hourly=hourly)        # the four leakage asserts still run row by row
     expected = split_nights(hourly).query("split == 'test'")
     assert (feats["night_of"] >= TEST_START).all() and set(feats["split"]) == {"test"}
     assert len(feats) == N_TEST_HOURS == expected["n_hours"].sum()
@@ -382,7 +390,7 @@ def test_predictions(tv, te, log):
     fc = fc[fc["split"] == "test"].set_index("hour_start_nem")
     assert len(fc) == len(te) and set(fc.index) == set(te["hour_start_nem"])
     ridge_file = te["hour_start_nem"].map(fc["mef_pred"])
-    ridge = make_model(FEATURES, RIDGE_ALPHA).fit(tv[FEATURES], tv["y"])      # Step 5：train + val 重拟合
+    ridge = make_model(FEATURES, RIDGE_ALPHA).fit(tv[FEATURES], tv["y"])      # Step 5: refit on train + val
     d = float(np.abs(ridge.predict(te[FEATURES]) - ridge_file.to_numpy()).max())
     assert d < TOL, f"ridge-v1 recomputed differs from {FORECAST} by {d:.2e}"
     log(f"ridge-v1: read from {FORECAST} (test rows); Step 5 refit recomputed, max diff {d:.1e}")
@@ -406,10 +414,10 @@ def main():
     sys.stdout.reconfigure(errors="backslashreplace")
     head = guard()
     log = RunLog()
-    tv = load()                                   # train + val；load() 断言没有 test 夜
+    tv = load()                                   # train + val; load() asserts there are no test nights
     val_checks(tv, log)
 
-    # ---- 解盲点：从这里起读 test 夜的真实标签
+    # ---- Unblinding point: from here on the true labels of the test nights are read
     predictions = open(PRED_FILE, encoding="utf-8").read().strip()
     header = "\n".join([
         "Step 7 test-set evaluation: single run",

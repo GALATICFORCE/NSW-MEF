@@ -1,14 +1,15 @@
-"""AEI 试跑（交接文档 §7b）：用 nemed 取 NSW1 一天的 5 分钟总排放和排放强度，手算核对 3 个区间
+"""AEI trial run (hand-off doc §7b): use nemed to get one day of NSW1 5-minute total emissions and intensity,
+and check 3 intervals by hand
 
-只算 NSW1 本州发电；排放因子和 MEF 用同一套（GENUNITS + DUALLOC，as of 2026-07-01）。
-用法：python src\\aei_trial.py
+Only NSW1 in-region generation; emission factors are the same set as for MEF (GENUNITS + DUALLOC, as of 2026-07-01).
+Usage: python src\\aei_trial.py
 """
 import time
 from pathlib import Path
 
 import pandas as pd
 
-from nemed_factors import GENSET_ASOF   # 导入时已执行 aemo_archive_fix.apply()
+from nemed_factors import GENSET_ASOF   # importing it already runs aemo_archive_fix.apply()
 
 import nemed
 import nemed.process as nemed_process
@@ -23,7 +24,7 @@ OUT_CSV = "data/processed/aei_trial_nsw1_5min_2025-07-15.csv"
 REPORT = "outputs/aei_trial_2025-07-15.txt"
 FMT = "%Y/%m/%d %H:%M"
 
-# 和 MEF 一样固定 asof，避免 nemed 默认的"今天往前 90 天"随运行日期漂移
+# Fix asof as for MEF, so nemed's default ("90 days before today") does not drift with the run date
 nemed_process.download_genset_map = lambda cache, asof_date=None: download_genset_map(cache, asof_date=GENSET_ASOF)
 nemed_process.download_dudetailsummary = (
     lambda cache, asof_date=None: download_dudetailsummary(cache, asof_date=GENSET_ASOF))
@@ -37,14 +38,16 @@ def note(text=""):
 
 
 def run_nemed():
-    # 从前一天 23:55 开始：nemed 用前后两个 SCADA 读数的平均算电量，窗口里第一个区间没有前一个读数
+    # Start at 23:55 the day before: nemed computes energy from the mean of two consecutive SCADA readings,
+    # so the first interval in the window has no previous reading
     start, end = DAY - pd.Timedelta("5min"), DAY + pd.Timedelta(days=1)
     res = nemed.get_total_emissions(start.strftime(FMT), end.strftime(FMT), CACHE, filter_regions=[REGION])
     return res[(res["TimeEnding"] > DAY) & (res["TimeEnding"] <= end)].reset_index(drop=True)
 
 
 def hand_check(nemed_res):
-    """不经过 nemed 的汇总代码，直接从 SCADA、DUDETAILSUMMARY、排放因子和自用电表重算"""
+    """Recompute directly from SCADA, DUDETAILSUMMARY, emission factors and the auxiliary-load table,
+    bypassing nemed's aggregation code"""
     scada = dynamic_data_compiler((DAY - pd.Timedelta("5min")).strftime("%Y/%m/%d %H:%M:%S"),
                                   (DAY + pd.Timedelta(days=1, minutes=5)).strftime("%Y/%m/%d %H:%M:%S"),
                                   "DISPATCH_UNIT_SCADA", CACHE,
@@ -110,8 +113,8 @@ if __name__ == "__main__":
 
     info, ef, nsw_gen = hand_check(res)
 
-    # nemed 汇总时按 columns.str.contains('Energy')[0] 选电量列，选中的是发电口径的 Energy，
-    # 而 Total_Emissions 是按送出口径 Energy_SO 算的，所以 Intensity_Index 分子分母口径不一致
+    # When aggregating, nemed picks the energy column with columns.str.contains('Energy')[0], which selects as-generated Energy,
+    # while Total_Emissions is computed on sent-out Energy_SO, so the numerator and denominator of Intensity_Index differ in basis
     start, end = DAY - pd.Timedelta("5min"), DAY + pd.Timedelta(days=1)
     duid = nemed_process.get_total_emissions_by_DI_DUID(
         start.strftime(FMT), end.strftime(FMT), CACHE, filter_regions=[REGION], return_all=True)

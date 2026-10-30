@@ -1,4 +1,4 @@
-"""DUID 的月度排放因子，取法和 nemed.get_marginal_emissions 一致"""
+"""Monthly emission factors per DUID, obtained the same way as in nemed.get_marginal_emissions"""
 import pandas as pd
 
 import aemo_archive_fix
@@ -8,13 +8,13 @@ import nemed.process as nemed_process
 from nemed.downloader import download_genset_map
 
 CACHE = "data/raw/nemed_cache"
-GENSET_ASOF = "2026/07/01 00:00"   # 和 fetch_mef.py 一致
+GENSET_ASOF = "2026/07/01 00:00"   # same as fetch_mef.py
 
 
 def monthly_factors(first, last, genset_asof=GENSET_ASOF):
-    """返回 file_year, file_month, DUID, CO2E_EMISSIONS_FACTOR ...
+    """Returns file_year, file_month, DUID, CO2E_EMISSIONS_FACTOR ...
 
-    和 fetch_mef.py 一样逐月调用 nemed 的函数。genset_asof=None 时用 nemed 默认的 asof_date。
+    Calls nemed's function month by month, as fetch_mef.py does. With genset_asof=None, nemed's default asof_date is used.
     """
     original = nemed_process.download_genset_map
     nemed_process.download_genset_map = (

@@ -13,21 +13,21 @@ FCAS = r"^[LR](?:1SE|6SE|60S|5MI|5RE)(?:,GEN|,LOAD)?$"
 
 
 def read_price_setters():
-    """NSW1 能量市场的 price setter 记录，每条记录一行"""
+    """NSW1 energy-market price-setter records, one row per record"""
     rows = []
     for day in pd.date_range(START.normalize(), END.normalize()):
         for r in json.load(open(f"{CACHE}/NEMED_PS_DAILY_{day:%Y-%m-%d}.json")):
             if r["@Market"] == "Energy" and r["@RegionID"] == "NSW1":
                 rows.append((r["@PeriodID"], r["@Unit"], r["@DispatchedMarket"], float(r["@Increase"])))
     ps = pd.DataFrame(rows, columns=["PeriodID", "Unit", "DispatchedMarket", "Increase"])
-    # PeriodID 形如 2025-07-01T00:45:00+10:00，即 NEM 时间的区间结束时刻
+    # PeriodID looks like 2025-07-01T00:45:00+10:00, i.e. the interval end time in NEM time
     ps["Time"] = pd.to_datetime(ps["PeriodID"].str[:19])
     ps = ps[ps["Time"].between(START, END)].drop(columns="PeriodID")
 
     dm = ps["DispatchedMarket"]
-    kind = pd.Series("other", index=ps.index)   # GenericConstraintSurplus、DROF 等
+    kind = pd.Series("other", index=ps.index)   # GenericConstraintSurplus, DROF, etc.
     kind[dm == "ENOF"] = "enof"
-    # 和 nemed 一样，Basslink 不算 ENOF 定价机组，只单独记诊断列
+    # As in nemed, Basslink is not counted as an ENOF price-setting unit; it only gets its own diagnostic column
     kind[(dm == "ENOF") & ps["Unit"].str.contains(BASSLINK)] = "basslink"
     kind[dm == "BDOF,GEN"] = "gen"
     kind[dm == "BDOF,LOAD"] = "load"
@@ -39,7 +39,8 @@ def read_price_setters():
 
 
 def flag_ef_missing(ps):
-    """ENOF 定价机组查不到排放因子的记录。和 nemed 一样去掉 Basslink，按 Time（区间结束）所在月份匹配"""
+    """Records of ENOF price-setting units with no emission factor found. Basslink is dropped as in nemed;
+    factors are matched on the month of Time (interval end)"""
     factors = monthly_factors("2025-07", "2026-06")
     enof = ps[ps["kind"] == "enof"].copy()
     enof["file_year"], enof["file_month"] = enof["Time"].dt.year, enof["Time"].dt.month
@@ -85,7 +86,7 @@ df["dispatch_types"] = df["dispatch_types"].fillna("")
 df["mef_nemed"] = read_nemed_mef().reindex(full_index)
 df["ef_missing"] = df.index.isin(flag_ef_missing(ps))
 
-# status 按顺序判断，先命中的优先
+# status is decided in order; the first match wins
 has_bdof = df["has_gen"] | df["has_load"]
 df["status"] = "other"
 df.loc[df["has_enof"] & ~has_bdof & df["mef_nemed"].notna(), "status"] = "nonbatt"

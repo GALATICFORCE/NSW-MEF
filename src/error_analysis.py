@@ -1,17 +1,18 @@
-"""Step 6：误差分析（交接文档 10-19 版 §7），只诊断、不修正；只用 train 和 val 的夜
+"""Step 6: error analysis (hand-off doc 10-19 version §7), diagnosis only, no fixes; train and val nights only
 
-模型都只在 train 上拟合，就是 Step 4 / 4c 评估过的那几个：ridge-v1（alpha 100）、hgb-v1（depth 3、100 轮）、
-hourmean、weekmean（特征列 lag2to7_same_hour_mean，和 hgb.py 相同）。先断言 mae_all、mae_pure 与
-outputs/model_compare-v1.csv 相同，再做三件事：
-- Q1 ridge-v1 的误差按 悉尼小时 × 月份（月份按 night_of 归属，2026-03 按 split 分成两列）
-- Q2 按每小时电池填补的区间个数分四箱；mae_hour_adj = |误差| − 该模型在该 split、该悉尼小时的平均 |误差|，按箱取均值
-- Q3 train / val 差距；val 上逐小时 d = |err_hgb| − |err_ridge|，95% 区间按夜整夜重抽
+The models are fitted on train only and are the ones evaluated in Step 4 / 4c: ridge-v1 (alpha 100), hgb-v1 (depth 3,
+100 iterations), hourmean, weekmean (feature column lag2to7_same_hour_mean, as in hgb.py). First asserts that mae_all and
+mae_pure equal outputs/model_compare-v1.csv, then does three things:
+- Q1 ridge-v1 errors by Sydney hour × month (month taken from night_of; 2026-03 is split into two columns by split)
+- Q2 four bins by the number of battery-filled intervals in the hour; mae_hour_adj = |error| − that model's mean |error|
+  in the same split and Sydney hour, averaged per bin
+- Q3 train / val gap; on val, per-hour d = |err_hgb| − |err_ridge|, 95% interval by resampling whole nights
 
-热图格子和填补箱的 mae、pure_hours_paired 的 mean_d 是小时直接平均（一个格子 / 一个箱不是整夜）；
-train_val_gap 和 pure_hours_paired_nightavg 先按夜算再平均，和 model_compare 一致（nightavg 是 10-20 看过
-结果后补算的，两种口径都报）。
+The mae of heatmap cells and fill bins, and mean_d in pure_hours_paired, are plain averages over hours (a cell / a bin is
+not a whole night); train_val_gap and pure_hours_paired_nightavg average per night first and then over nights, as in
+model_compare (nightavg was added on 10-20 after seeing the results; both versions are reported).
 
-用法：python src\\error_analysis.py   （先运行 features.py）
+Usage: python src\\error_analysis.py   (run features.py first)
 """
 import matplotlib
 
@@ -45,7 +46,8 @@ FIG_HEATMAP = "outputs/fig_error_heatmap-v1.png"
 FIG_FILL = "outputs/fig_error_by_fill-v1.png"
 FIG_GAP = "outputs/fig_train_val_gap-v1.png"
 
-# 颜色：分类色按固定顺序给四个模型，三张图一致；热图用单一蓝色由浅到深
+# Colours: categorical colours go to the four models in a fixed order, the same in all three figures;
+# the heatmap uses a single blue, light to dark
 COLORS = {"ridge-v1": "#2a78d6", "hgb-v1": "#eb6834", "hourmean": "#1baf7a", "weekmean": "#eda100"}
 LIGHT = {"ridge-v1": "#86b6ef", "hgb-v1": "#f5b498"}
 BLUES = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"]
@@ -65,7 +67,7 @@ def fit_predictions(df):
 
 
 def night_mae(sub):
-    """先算每夜 MAE，再对夜取平均（和 model_compare 的 mae_all / mae_pure 相同）"""
+    """MAE per night first, then averaged over nights (same as mae_all / mae_pure in model_compare)"""
     return per_night(sub, whole_night=False)["mae"].mean()
 
 
@@ -87,14 +89,14 @@ def regression_check(df, preds):
 
 
 def long_errors(df, preds):
-    """每行 = 一个小时 × 一个模型"""
+    """One row = one hour × one model"""
     base = df[["split", "night_of", "hour_start_nem", "truth", "n_battfill"]].assign(
         hour_sydney=df["hour_start_sydney"].dt.hour, month=df["night_of"].dt.strftime("%Y-%m"),
         fill_bin=pd.cut(df["n_battfill"], [-0.5, 0.5, 4.5, 8.5, 12.5], labels=FILL_BINS).astype(str))
     out = pd.concat([base.assign(model=m, pred=preds[m]) for m in MODELS], ignore_index=True)
     out["err"] = out["pred"] - out["truth"]
     out["abs_err"] = out["err"].abs()
-    # 去掉"小时"混杂：减去同一模型、同一 split、同一悉尼小时的平均 |误差|
+    # Remove the hour-of-day confounder: subtract the mean |error| of the same model, split and Sydney hour
     hour_mean = out.groupby(["model", "split", "hour_sydney"])["abs_err"].transform("mean")
     out["abs_err_hour_adj"] = out["abs_err"] - hour_mean
     return out
@@ -125,7 +127,8 @@ def q1_figure(t, long):
     gs = fig.add_gridspec(1, 4, width_ratios=[4.2, 0.09, 0.5, 1.25], wspace=0.05)
     ax, cax, axb = fig.add_subplot(gs[0]), fig.add_subplot(gs[1]), fig.add_subplot(gs[3])
     cmap = LinearSegmentedColormap.from_list("blues", BLUES)
-    # 色阶从数据最小值向下取到 0.05 的整数倍，格子之间的差别才看得出来；色条标明刻度
+    # The colour scale starts at the data minimum rounded down to a multiple of 0.05, so differences between cells
+    # are visible; the colour bar shows the scale
     vmin = float(np.floor(grid.min().min() * 20) / 20)
     vmax = float(np.ceil(grid.max().max() * 20) / 20)
     im = ax.imshow(grid.to_numpy(), cmap=cmap, vmin=vmin, vmax=vmax, aspect="auto")
@@ -227,9 +230,9 @@ def q3_gap(check):
 
 
 def q3_paired(long):
-    """返回两张表，列相同、用同一组整夜重抽：
-    pooled = 抽中夜的小时合在一起求平均；nightavg = 每夜先求平均再对夜平均（和 model_compare 的 mae_pure 同口径，
-    10-20 看过 Step 6 结果后由 Kunyu 定补算）"""
+    """Returns two tables with the same columns, from the same set of whole-night resamples:
+    pooled = hours of the drawn nights averaged together; nightavg = mean per night, then over nights (same basis as
+    mae_pure in model_compare; added on 10-20 by Kunyu's decision after seeing the Step 6 results)"""
     v = long[long["split"] == "val"]
     wide = v.pivot_table(index=["night_of", "hour_start_nem", "n_battfill"], columns="model",
                          values="abs_err").reset_index()
@@ -241,8 +244,8 @@ def q3_paired(long):
         night_mean = s / n
         rng = np.random.default_rng(0)
         idx = rng.integers(0, len(per), size=(N_BOOT, len(per)))
-        boots = {"pooled": s[idx].sum(axis=1) / n[idx].sum(axis=1),      # 整夜重抽后，按小时求平均
-                 "nightavg": night_mean[idx].mean(axis=1)}               # 整夜重抽后，对夜求平均
+        boots = {"pooled": s[idx].sum(axis=1) / n[idx].sum(axis=1),      # after resampling whole nights, average over hours
+                 "nightavg": night_mean[idx].mean(axis=1)}               # after resampling whole nights, average over nights
         d = sub["d"].to_numpy()
         centre = {"pooled": d.mean(), "nightavg": night_mean.mean()}
         for kind, boot in boots.items():
@@ -282,7 +285,7 @@ def q3_figure(gap):
 
 if __name__ == "__main__":
     pd.set_option("display.width", 200)
-    df = load()                                  # load() 已断言没有 test 夜
+    df = load()                                  # load() already asserts there are no test nights
     assert set(df["split"]) == set(SPLITS)
     assert df["n_battfill"].between(0, 12).all()
     preds = fit_predictions(df)

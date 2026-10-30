@@ -9,13 +9,13 @@ SRC = "data/processed/mef_nsw1_5min_full.csv"
 REPORT_DIR = "data/processed"
 
 df = pd.read_csv(SRC, parse_dates=["Time"])
-# 按区间开始时刻归属小时、日、月
+# Assign hour, day and month by interval start time
 start = df["Time"] - pd.Timedelta("5min")
 df["month"] = start.dt.to_period("M")
 df["hour"] = start.dt.hour
 df["half"] = start.dt.year.map({2025: "2025H2", 2026: "2026H1"})
 
-print("==== 1. status 计数")
+print("==== 1. status counts")
 print(df["status"].value_counts().to_string())
 
 print("\n==== 2. batt_dir")
@@ -24,9 +24,9 @@ print(pd.crosstab(df["status"], df["batt_dir"]).to_string())
 print("\n==== 3. has_ldof / ef_missing × status")
 print(pd.crosstab(df["has_ldof"], df["status"], margins=True).to_string())
 print(pd.crosstab(df["ef_missing"], df["status"], margins=True).to_string())
-print("has_ldof 且 ef_missing:", (df["has_ldof"] & df["ef_missing"]).sum())
+print("has_ldof and ef_missing:", (df["has_ldof"] & df["ef_missing"]).sum())
 
-print("\n==== 4. ef_missing 的来源")
+print("\n==== 4. where ef_missing comes from")
 rows = []
 for day in pd.date_range("2025-07-01", "2026-07-01"):
     for r in json.load(open(f"{CACHE}/NEMED_PS_DAILY_{day:%Y-%m-%d}.json")):
@@ -55,26 +55,26 @@ for duid, sub in miss.groupby("DUID"):
     gu = genunits[genunits["GENSETID"].isin(set(gs_fixed + gs_default) | {duid})]
     gu = gu[[f"{y}-{m:02d}" in months for y, m in zip(gu["file_year"], gu["file_month"])]]
     print(f"{duid}: {sub['Time'].nunique()} intervals, months {months}")
-    print(f"   DUALLOC GENSETID  asof {GENSET_ASOF[:7]}: {gs_fixed} | nemed 默认 asof: {gs_default}")
+    print(f"   DUALLOC GENSETID  asof {GENSET_ASOF[:7]}: {gs_fixed} | nemed default asof: {gs_default}")
     if gu.empty:
-        print("   GENUNITS: 这些月份里没有对应的 GENSETID")
+        print("   GENUNITS: no matching GENSETID in these months")
     else:
         print("   GENUNITS:", gu.groupby("GENSETID")["CO2E_EMISSIONS_FACTOR"]
-              .agg(lambda s: f"{s.notna().sum()}/{len(s)} 月有系数").to_dict())
-    print(f"   改用 nemed 默认 asof 后有系数的区间: {sub.loc[sub['ef_default_asof'].notna(), 'Time'].nunique()}")
+              .agg(lambda s: f"{s.notna().sum()}/{len(s)} months with a factor").to_dict())
+    print(f"   intervals with a factor under nemed's default asof: {sub.loc[sub['ef_default_asof'].notna(), 'Time'].nunique()}")
 
-print("\n==== 5. mef_nemed 全年最大、最小值")
+print("\n==== 5. mef_nemed full-year max and min")
 for name, idx in [("max", df["mef_nemed"].idxmax()), ("min", df["mef_nemed"].idxmin())]:
     r = df.loc[idx]
     print(f"{name}: {r['mef_nemed']:.4f} at {r['Time']} | status {r['status']} | w_enof {r['w_enof']:.4f} "
           f"| n_tbslack {r['n_tbslack']} | {r['dispatch_types']}")
-print("mef_nemed 分位数:", df["mef_nemed"].quantile([0, 0.001, 0.01, 0.5, 0.99, 0.999, 1]).round(4).to_dict())
+print("mef_nemed quantiles:", df["mef_nemed"].quantile([0, 0.001, 0.01, 0.5, 0.99, 0.999, 1]).round(4).to_dict())
 
-print("\n==== 6. w_enof + w_gen + w_load，按 status")
+print("\n==== 6. w_enof + w_gen + w_load, by status")
 w = df["w_enof"] + df["w_gen"] + df["w_load"]
 print(w.groupby(df["status"]).quantile([0.01, 0.5, 0.99]).unstack().round(4).to_string())
 
-print("\n==== 8（新定义）hour-of-day × status × batt_dir")
+print("\n==== 8 (new definition) hour-of-day × status × batt_dir")
 df["cell"] = df["status"] + df["batt_dir"].map(lambda d: f"_{d}" if isinstance(d, str) else "")
 order = ["nonbatt", "batt_charge", "batt_discharge", "batt_both",
          "mixed_charge", "mixed_discharge", "mixed_both", "other", "norecord"]
@@ -82,7 +82,7 @@ for half, sub in df.groupby("half"):
     counts = pd.crosstab(sub["hour"], sub["cell"]).reindex(columns=order, fill_value=0)
     denom = counts.sum(axis=1)
     counts.to_csv(f"{REPORT_DIR}/check8_counts_{half}.csv")
-    print(f"\n-- {half} 计数（每小时分母 = {denom.unique().tolist()} 个区间 = 天数 × 12）")
+    print(f"\n-- {half} counts (denominator per hour = {denom.unique().tolist()} intervals = days × 12)")
     print(counts.to_string())
     b = counts[[c for c in order if c.startswith(("batt", "mixed"))]]
     batt_only = counts[["batt_charge", "batt_discharge", "batt_both"]]
@@ -94,5 +94,5 @@ for half, sub in df.groupby("half"):
         "charge / batt": batt_only["batt_charge"] / batt_only.sum(axis=1),
     }).round(3)
     share.to_csv(f"{REPORT_DIR}/check8_share_{half}.csv")
-    print(f"\n-- {half} 比例（分母见列名）")
+    print(f"\n-- {half} shares (denominator in the column name)")
     print(share.to_string())

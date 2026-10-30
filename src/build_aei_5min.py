@@ -1,20 +1,22 @@
-"""NSW1 全年 5 分钟 AEI = 总排放 ÷ 送出电量（10-11 定；不用 nemed 的 Intensity_Index 列）
+"""NSW1 full-year 5-minute AEI = total emissions ÷ sent-out energy (decided 10-11; nemed's Intensity_Index column is not used)
 
-按月直接调用 nemed 内部的 _total_emissions_process：窗口从上月最后一个区间开始（保证本月第一个区间
-有前一个 SCADA 读数），只保留本月的区间，也不会在缓存里写 processed_co2_total_*.parquet。
-（已核对：2025-07-31 23:05 → 2025-08-01 01:00 的 24 个区间和外层 get_total_emissions_by_DI_DUID 完全一致。）
+Calls nemed's internal _total_emissions_process month by month: the window starts at the last interval of the previous
+month (so the first interval of the month has a previous SCADA reading), only the month's own intervals are kept, and
+nothing is written to the cache as processed_co2_total_*.parquet.
+(Checked: the 24 intervals 2025-07-31 23:05 → 2025-08-01 01:00 are identical to the outer get_total_emissions_by_DI_DUID.)
 
-只算 NSW1 本州 GENERATOR 机组（nemed 默认，不含电池等双向机组）；排放因子为空的机组不计入 AEI，
-但单独统计它们的出力。genset map 和 DUDETAILSUMMARY 都固定在 GENSET_ASOF。
+Only NSW1 in-region GENERATOR units (nemed default, excluding bidirectional units such as batteries); units with an empty
+emission factor are left out of AEI, but their output is counted separately. The genset map and DUDETAILSUMMARY are both
+fixed at GENSET_ASOF.
 
-用法：python src\\build_aei_5min.py
+Usage: python src\\build_aei_5min.py
 """
 import time
 from pathlib import Path
 
 import pandas as pd
 
-from nemed_factors import GENSET_ASOF   # 导入时已执行 aemo_archive_fix.apply()
+from nemed_factors import GENSET_ASOF   # importing it already runs aemo_archive_fix.apply()
 
 import nemed.process as nemed_process
 from nemed.downloader import download_dudetailsummary, download_genset_map
@@ -39,7 +41,7 @@ def note(text=""):
 
 
 def month_units(month):
-    """一个月的机组级表（含排放因子为空的机组），Time = 区间结束"""
+    """Unit-level table for one month (including units with an empty emission factor), Time = interval end"""
     lo, hi = month.start_time, (month + 1).start_time
     unit = nemed_process._total_emissions_process(
         (lo - pd.Timedelta("5min")).strftime(FMT), hi.strftime(FMT), CACHE,
@@ -75,12 +77,12 @@ if __name__ == "__main__":
     note(f"aei (tCO2e/MWh): min {aei['aei'].min():.3f}, p1 {aei['aei'].quantile(0.01):.3f}, "
          f"median {aei['aei'].median():.3f}, p99 {aei['aei'].quantile(0.99):.3f}, max {aei['aei'].max():.3f}")
 
-    # 回归检查：2025-07-15 的总排放应和 d62f074 试跑的 nemed 输出逐区间相同
+    # Regression check: total emissions on 2025-07-15 must match the nemed output of the d62f074 trial run, interval by interval
     trial = pd.read_csv(TRIAL, parse_dates=["TimeEnding"]).set_index("TimeEnding")["Total_Emissions"]
     diff = (aei["Total_Emissions"].reindex(trial.index) - trial).abs().max()
     note(f"regression vs trial 2025-07-15 Total_Emissions: max abs diff {diff:.2e} t over {len(trial)} intervals")
 
-    # 排放因子为空的机组：有出力的区间数和电量占比
+    # Units with an empty emission factor: number of intervals with output, and share of energy
     noef = pd.concat(noef)
     noef = noef[noef["Energy_SO"] > 0]
     all_energy = aei["Energy_SO"].sum() + noef["Energy_SO"].sum()

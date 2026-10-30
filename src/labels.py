@@ -1,7 +1,7 @@
-"""5 分钟 MEF 标签，规则见 docs/label_rules_v1.md（tag label-rules-v1）
+"""5-minute MEF labels; rules in docs/label_rules_v1.md (tag label-rules-v1)
 
-档位列（规则第 5 节）：1 / 2 / 3 = 实际用了第几档；0 = 三档都不足 N 个来源区间，对应的标签为 NaN；
-空 = 不适用（该区间没有这一侧的电池记录，或已被第 7 节置为 NaN）。
+Tier columns (rules section 5): 1 / 2 / 3 = the tier actually used; 0 = none of the three tiers has N source intervals,
+and the label is NaN; empty = not applicable (the interval has no battery record on this side, or section 7 set it to NaN).
 """
 import numpy as np
 import pandas as pd
@@ -12,7 +12,7 @@ LABELS = ("A", "B", "C", "Cfwd")
 W_RANGE = (0.5, 1.5)
 ETA = 0.85
 N_MIN = 6
-# 规则第 2 节：全年统一用 2026H1 这一套，NEM 小时 [start, end)
+# Rules section 2: the 2026H1 set is used for the whole year; NEM hours [start, end)
 WINDOWS = [("night", "charge", 0, 5), ("morning", "discharge", 5, 7),
            ("day", "charge", 7, 16), ("evening", "discharge", 16, 24)]
 
@@ -26,10 +26,11 @@ def w_total(df):
 
 
 def nan_reason(df):
-    """规则第 7 节，四个标签共用。空字符串 = 不置 NaN；多个原因同时成立时取排在前面的"""
+    """Rules section 7, shared by all four labels. Empty string = not set to NaN;
+    if several reasons apply, the one listed first wins"""
     w = w_total(df)
     reason = pd.Series("", index=df.index)
-    # 从优先级最低的开始写，后写的覆盖先写的
+    # Write from the lowest priority up; later writes overwrite earlier ones
     reason[(w < W_RANGE[0]) | (w > W_RANGE[1])] = "w_total"
     reason[df["ef_missing"]] = "ef_missing"
     reason[df["has_ldof"]] = "has_ldof"
@@ -43,15 +44,15 @@ def nan_mask(df):
 
 
 def is_source(df):
-    """规则第 3 节：窗口值只从这些区间取"""
+    """Rules section 3: window values are taken only from these intervals"""
     return (df["status"] == "nonbatt") & ~nan_mask(df)
 
 
 def segments(df):
-    """给每个区间标上预测日、窗口和窗口段；返回 (每区间的段号, 段表)
+    """Tag each interval with its forecast day, window and window segment; returns (segment id per interval, segment table)
 
-    窗口段 = 连续的、预测日和窗口都相同的一段区间。夏令时期间 NEM 23 点属于下一个悉尼日期，
-    所以那一天开头会多出一个单独的晚间放电段（规则第 1 节）。
+    A window segment = a run of consecutive intervals with the same forecast day and window. During daylight saving, NEM hour 23
+    belongs to the next Sydney date, so that day starts with an extra, separate evening discharge segment (rules section 1).
     """
     start = df["Time"] - pd.Timedelta("5min")
     hour = start.dt.hour
@@ -71,7 +72,8 @@ def segments(df):
         day=("day", "first"), kind=("kind", "first"), start=("start", "min"),
         n_src=("src", "sum"), mean=("value", "mean"))
 
-    # 配对用的段号（规则第 4 节）。所在窗口类型符合就用所在段，否则往前 / 往后找
+    # Segment id used for pairing (rules section 4). If the interval's own window type matches, use its own segment;
+    # otherwise search backward / forward
     charge_id = table.index.to_series().where(table["kind"] == "charge")
     discharge_id = table.index.to_series().where(table["kind"] == "discharge")
     table["prev_charge_same_day"] = charge_id.groupby(table["day"]).ffill()
@@ -81,7 +83,8 @@ def segments(df):
 
 
 def resolve(paired, day, kind, table):
-    """规则第 5 节的三档兜底；paired = 配对段号（可为 NaN），day / kind = 第 2、3 档用的日期和窗口类型"""
+    """Three-tier fallback of rules section 5; paired = paired segment id (may be NaN),
+    day / kind = date and window type used by tiers 2 and 3"""
     by_kind = table.assign(s=table["mean"] * table["n_src"]).groupby(["day", "kind"])[["n_src", "s"]].sum()
     by_day = by_kind.groupby(level="day").sum()
 
@@ -98,7 +101,8 @@ def resolve(paired, day, kind, table):
 
 
 def battery_fills(df, name, eta):
-    """返回 (fill_gen, fill_load, 档位列字典)：电池 GEN / LOAD 记录的反事实排放因子（规则第 6 节）"""
+    """Returns (fill_gen, fill_load, dict of tier columns): counterfactual emission factors for battery GEN / LOAD
+    records (rules section 6)"""
     seg, table = segments(df)
     own = table.reindex(seg.to_numpy()).set_index(df.index)
     has_gen = df["batt_dir"].isin(["discharge", "both"]) & ~nan_mask(df)
@@ -114,13 +118,15 @@ def battery_fills(df, name, eta):
 
     charge = pd.Series("charge", index=df.index)
     discharge = pd.Series("discharge", index=df.index)
-    # 充电记录：C 和 C-fwd 相同，同一预测日内所在或之后的放电段
+    # Charge records: same for C and C-fwd; the discharge segment the interval is in, or the next one, within the same
+    # forecast day
     load_value, load_tier = resolve(own["next_discharge_same_day"], own["day"], discharge, table)
     if name == "C":
         gen_value, gen_tier = resolve(own["prev_charge_same_day"], own["day"], charge, table)
         tiers = {"tier_C_gen": tier_col(gen_tier, has_gen), "tier_C_load": tier_col(load_tier, has_load)}
     else:
-        # C-fwd 放电记录：所在或之后的充电段，可以跨日；第 2、3 档用配对段那一天，没有配对段（数据最后一天）就用当天
+        # C-fwd discharge records: the charge segment the interval is in, or the next one, possibly on a later day; tiers 2
+        # and 3 use the paired segment's day, or the same day if there is no paired segment (last day of the data)
         paired = own["next_charge_any_day"]
         paired_day = table["day"].reindex(paired.to_numpy()).set_axis(df.index)
         gen_value, gen_tier = resolve(paired, paired_day.fillna(own["day"]), charge, table)
@@ -129,7 +135,7 @@ def battery_fills(df, name, eta):
 
 
 def compute_label(df, name, eta=ETA):
-    """返回 Time、label_<name> 和对应的档位列"""
+    """Returns Time, label_<name> and the matching tier columns"""
     if name == "A":
         fill_gen = fill_load = pd.Series(0.0, index=df.index)
         tiers = {}
@@ -138,8 +144,8 @@ def compute_label(df, name, eta=ETA):
     else:
         raise ValueError(f"unknown label {name!r}, expected one of {LABELS}")
 
-    # 规则第 6 节：base 是 nemed 的非电池部分，batt 区间没有非电池部分；
-    # 没有这一侧电池记录的区间，这一侧贡献为 0（不让 NaN 的填充值传进来）
+    # Rules section 6: base is nemed's non-battery part; batt intervals have no non-battery part;
+    # an interval with no battery record on a side gets 0 from that side (so NaN fill values do not propagate)
     base = df["mef_nemed"].where(df["status"] != "batt", 0.0)
     gen_part = (df["w_gen"] * fill_gen).where(df["batt_dir"].isin(["discharge", "both"]), 0.0)
     load_part = (df["w_load"] * fill_load).where(df["batt_dir"].isin(["charge", "both"]), 0.0)

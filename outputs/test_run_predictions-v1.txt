@@ -1,5 +1,5 @@
-Kunyu's three predictions, written on 2026-10-20 before the single run. Answers are his words, verbatim.
+Kunyu's three predictions, written on 2026-10-20 before the single run. Answers are his words, translated word for word from Chinese on 2026-10-30 (the originals are at tag results-v1).
 Questions (as asked by the VS Code side): (1) test MAE vs validation 0.1775: higher or lower? (2) ridge-v1 - fixed paired interval: does it contain 0? (3) which month is worse, May or June?
-1. 高
-2. 包含
-3. 5月
+1. higher
+2. contains
+3. May

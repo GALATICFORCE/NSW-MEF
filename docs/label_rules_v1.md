@@ -1,197 +1,199 @@
-# MEF 标签规则 v1（冻结版，待周三审阅）
+# MEF label rules v1 (frozen version, for review on Wednesday)
 
-## 0. 声明
+> Translated from the Chinese original on 2026-10-30; no rule was changed. The original text is at tag `label-rules-v1`.
 
-- **起草者事先看过的 MEF 数值**：
-  - 2026H1 "丢弃"和"记为 0"两种处理下的分小时 MEF 均值；
-  - 2025-07 至 2026-06 两种处理下的月度 MEF 均值；
-  - 调试时个别区间的 MEF 值；
-  - 5 分钟表验收第 5 项给出的 mef_nemed 全年最大值、最小值和分位数，以及这两个区间的原始 price setter 记录；
-  - 冻结前为处理待定项算过的质量计数：w 正常的 nonbatt 区间里，mef_nemed < 0 和 > 1.5 的区间数。
-- **起草依据**：只用验收第 8 项的方向分布表（`data/processed/check8_share_2025H2.csv`、`check8_share_2026H1.csv`），以及只由 status、batt_dir、标记列、w 列和时间戳算出的计数。没有计算任何 A/B/C/C-fwd 标签。
-- **窗口边界是看过全年方向分布之后定的。**
-- **第 3 节的 w 过滤是看过 mef_nemed 极端值之后提出的。** 判断只依据 w 列，不依据 MEF 数值；敏感性分析里保留"不加 w 过滤"的版本。
+## 0. Declaration
 
-## 1. 输入与时间约定
+- **MEF values the drafter had seen beforehand**:
+  - hourly mean MEF for 2026H1 under the two treatments "drop" and "set to 0";
+  - monthly mean MEF from 2025-07 to 2026-06 under the two treatments;
+  - MEF values of individual intervals while debugging;
+  - the full-year maximum, minimum and quantiles of mef_nemed reported by item 5 of the 5-minute table acceptance checks, and the raw price setter records of those two intervals;
+  - quality counts computed before freezing to settle open items: the number of intervals with mef_nemed < 0 and > 1.5 among nonbatt intervals with normal w.
+- **Basis for drafting**: only the direction distribution tables from acceptance item 8 (`data/processed/check8_share_2025H2.csv`, `check8_share_2026H1.csv`), and counts computed only from status, batt_dir, the flag columns, the w columns and timestamps. No A/B/C/C-fwd label was computed.
+- **The window boundaries were set after seeing the full-year direction distribution.**
+- **The w filter in section 3 was proposed after seeing the extreme values of mef_nemed.** The decision is based only on the w columns, not on MEF values; the sensitivity analysis keeps a version "without the w filter".
 
-- 输入：`data/processed/mef_nsw1_5min_full.csv`，由 `src/build_5min_full.py` 生成。
-- 区间开始时刻 = Time − 5 min，NEM 时间（AEST，UTC+10，不调夏令时）。小时和窗口按 NEM 时间判断。
-- **预测日**：区间开始时刻换算成悉尼本地日期（Australia/Sydney）。
-  - 研究期内，夏令时（AEDT）覆盖 NEM 时间 2025-10-05 02:00 到 2026-04-05 01:55。
-  - 这段时间里，NEM 23:00–24:00 的区间属于下一个悉尼日期，共 2,184 个，其中电池定价 411 个。
-- **窗口段** = （预测日，窗口）。夏令时期间，晚间放电窗口被日界切开：NEM 23 点那一小时，成为下一个预测日开头的一个单独窗口段。
-- **Basslink**：和 nemed 一样，Basslink（`T-V-MNSP1`）的 ENOF 记录不算 ENOF 定价机组。
-  - 不计入 w_enof；
-  - 判断 status 时，"有 ENOF"也不算它；
-  - 只单独记在诊断列 `w_basslink` 里。
-- **w_total** = w_enof + w_gen + w_load（w_enof 不含 Basslink）。
-- 四个标签：
+## 1. Inputs and time conventions
 
-| 标签 | 含义 | 用途 |
+- Input: `data/processed/mef_nsw1_5min_full.csv`, produced by `src/build_5min_full.py`.
+- Interval start = Time − 5 min, in NEM time (AEST, UTC+10, no daylight saving). Hours and windows are determined in NEM time.
+- **Forecast day**: the interval start converted to the Sydney local date (Australia/Sydney).
+  - Within the study period, daylight saving (AEDT) covers NEM time 2025-10-05 02:00 to 2026-04-05 01:55.
+  - During this period, intervals in NEM 23:00–24:00 belong to the next Sydney date: 2,184 intervals, 411 of them battery-priced.
+- **Window segment** = (forecast day, window). During daylight saving, the evening discharge window is cut by the day boundary: the NEM 23:00 hour becomes a separate window segment at the start of the next forecast day.
+- **Basslink**: as in nemed, the ENOF records of Basslink (`T-V-MNSP1`) do not count as ENOF price-setting units.
+  - not included in w_enof;
+  - not counted as "has ENOF" when determining status;
+  - recorded only in the separate diagnostic column `w_basslink`.
+- **w_total** = w_enof + w_gen + w_load (w_enof excludes Basslink).
+- Four labels:
+
+| Label | Meaning | Use |
 |---|---|---|
-| `mef_A` | 电池记为 0 | 只作参照，不用于结论分级 |
-| `mef_B` | 同窗口反事实 | 预测目标 + 事后评估 |
-| `mef_C` | 日内收支平衡反事实 | 预测目标 + 事后评估 |
-| `mef_Cfwd` | 之后再充回来的反事实 | **只用于事后评估**（完美预知下的时段选择、排放评估），不作为预测目标 |
+| `mef_A` | battery set to 0 | reference only, not used to grade conclusions |
+| `mef_B` | same-window counterfactual | forecast target + ex-post evaluation |
+| `mef_C` | daily-balance counterfactual | forecast target + ex-post evaluation |
+| `mef_Cfwd` | recharge-later counterfactual | **ex-post evaluation only** (hour selection and emissions evaluation under perfect foresight), not a forecast target |
 
-C-fwd 的配对会跨到次日。如果拿它当预测目标，"昨天同小时"这类滞后特征会带进次日的信息，造成泄漏。
+C-fwd pairing can reach into the next day. If it were used as a forecast target, lag features such as "same hour yesterday" would carry information from the next day, causing leakage.
 
-## 2. 窗口
+## 2. Windows
 
-**规则**：在每个 NEM 小时里，看电池定价区间（status 为 batt 或 mixed）中充电占多数（>50%）还是放电占多数；把多数方向相同的连续小时连成一个窗口。
+**Rule**: in each NEM hour, check whether charging or discharging is the majority (>50%) among battery-priced intervals (status batt or mixed); consecutive hours with the same majority direction form one window.
 
-`charge` 的占比 = (batt_charge + mixed_charge) / (batt + mixed)。只用 batt 区间计算，每个小时的多数方向不变。
+The `charge` share = (batt_charge + mixed_charge) / (batt + mixed). Computing it from batt intervals only does not change the majority direction of any hour.
 
-| 窗口 | 类型 | 2025H2 | 2026H1 |
+| Window | Type | 2025H2 | 2026H1 |
 |---|---|---|---|
-| 凌晨 | 充电 | 01:00–04:00 | 00:00–05:00 |
-| 早高峰 | 放电 | 04:00–08:00 | 05:00–07:00 |
-| 白天 | 充电 | 08:00–16:00 | 07:00–16:00 |
-| 晚间 | 放电 | 16:00–01:00（跨午夜） | 16:00–24:00 |
+| Early morning | charge | 01:00–04:00 | 00:00–05:00 |
+| Morning peak | discharge | 04:00–08:00 | 05:00–07:00 |
+| Daytime | charge | 08:00–16:00 | 07:00–16:00 |
+| Evening | discharge | 16:00–01:00 (across midnight) | 16:00–24:00 |
 
-两套只在 0 点、4 点、7 点三个小时上不一致：
+The two sets differ only in three hours, 0, 4 and 7:
 
-| 小时 | 2025H2 充电占比 | 2026H1 充电占比 | 电池区间数（H2 / H1） |
+| Hour | 2025H2 charge share | 2026H1 charge share | Battery intervals (H2 / H1) |
 |---|---|---|---|
 | 0 | 0.390 | 0.538 | 213 / 398 |
 | 4 | 0.404 | 0.582 | 228 / 498 |
 | 7 | 0.420 | 0.574 | 462 / 1,114 |
 
-三个小时都是充放电的过渡段，占比都在 0.39–0.58 之间。
+All three hours are charge/discharge transitions, with shares between 0.39 and 0.58.
 
-**主方案：全年统一用 2026H1 这一套。** 理由有三条：
+**Main specification: the 2026H1 set is used for the whole year.** Three reasons:
 
-1. 2026H1 的电池定价区间是 23,021 个，2025H2 是 10,845 个，标签受电池处理影响的区间约三分之二在 H1。
-2. 2026H1 更接近当前的电池规模。
-3. 把 H1 这套用到 H2，只有 903 个区间落在多数方向相反的小时里；反过来把 H2 这套用到 H1，会有 2,010 个。
+1. 2026H1 has 23,021 battery-priced intervals and 2025H2 has 10,845, so about two thirds of the intervals whose labels depend on the battery treatment are in H1.
+2. 2026H1 is closer to the current battery fleet size.
+3. Applying the H1 set to H2 puts only 903 intervals in hours with the opposite majority direction; applying the H2 set to H1 would put 2,010 there.
 
-**敏感性分析**：两个半年各用自己那一套。
+**Sensitivity analysis**: each half-year uses its own set.
 
-四个窗口覆盖全天 24 小时，没有落在窗口之外的区间。
+The four windows cover all 24 hours of the day; no interval falls outside a window.
 
-## 3. 来源区间与窗口值
+## 3. Source intervals and window values
 
-- **来源区间**：同时满足以下四条，共 70,731 个：
+- **Source intervals**: intervals meeting all four conditions below, 70,731 in total:
   - `status == nonbatt`
   - `ef_missing == False`
   - `has_ldof == False`
   - 0.5 ≤ w_total ≤ 1.5
-- **窗口值** S(段) = 该窗口段内所有来源区间的 `mef_nemed` 均值。
+- **Window value** S(segment) = mean `mef_nemed` of all source intervals in that window segment.
 
-## 4. 配对
+## 4. Pairing
 
-### 4.1 三种反事实
+### 4.1 Three counterfactuals
 
-以晚高峰电池放电定价、多用 1 MWh 为例：
+Example: an evening-peak interval priced by battery discharge, with 1 MWh more consumed:
 
-| 标签 | 负荷类型 | 电池状态 | 多放的电怎么补回来 |
+| Label | Load type | Battery state | How the extra discharge is made up |
 |---|---|---|---|
-| B | 意外负荷 | 电量受限 | 同一窗口里少放 1 MWh，由当时的非电池机组补上 |
-| C | 可预期的负荷 | 日内收支平衡 | 当天早些时候已经为它多充了 1/η MWh |
-| C-fwd | 意外负荷 | 电量不受限 | 之后多充 1/η MWh 补回来，可能要到次日 |
+| B | unexpected load | energy-limited | 1 MWh less is discharged in the same window, made up by the non-battery units at that time |
+| C | expected load | daily balance | 1/η MWh extra was already charged for it earlier that day |
+| C-fwd | unexpected load | not energy-limited | 1/η MWh extra is charged later to make it up, possibly not until the next day |
 
-### 4.2 配对规则
+### 4.2 Pairing rules
 
-- **B**：电池记录取它所在窗口段的值，充电和放电都一样。只在同一个预测日内取值。
-- **C，放电记录（BDOF,GEN）**：
-  - 区间落在充电窗口里，就取这个窗口段；
-  - 否则，取同一预测日内、在它之前结束的最近一个充电窗口段。
-- **C-fwd，放电记录（BDOF,GEN）**：
-  - 区间落在充电窗口里，就取这个窗口段；
-  - 否则，取在它之后开始的最近一个充电窗口段，**允许跨到次日**。
-- **C 和 C-fwd，充电记录（BDOF,LOAD）**，两者相同：
-  - 区间落在放电窗口里，就取这个窗口段；
-  - 否则，取同一预测日内、在它之后开始的最近一个放电窗口段。
+- **B**: a battery record takes the value of the window segment it is in, for both charge and discharge. Values are taken only within the same forecast day.
+- **C, discharge records (BDOF,GEN)**:
+  - if the interval falls in a charge window, take that window segment;
+  - otherwise, take the nearest charge window segment in the same forecast day that ends before it.
+- **C-fwd, discharge records (BDOF,GEN)**:
+  - if the interval falls in a charge window, take that window segment;
+  - otherwise, take the nearest charge window segment that starts after it, **which may be on the next day**.
+- **C and C-fwd, charge records (BDOF,LOAD)**, identical for both:
+  - if the interval falls in a discharge window, take that window segment;
+  - otherwise, take the nearest discharge window segment in the same forecast day that starts after it.
 
-## 5. 兜底
+## 5. Fallback
 
-N = 6，相当于 30 分钟的来源区间。依次尝试下面三档，第一档满足 ≥ N 个来源区间就用该档的均值：
+N = 6, i.e. 30 minutes of source intervals. Try the three tiers below in order; the first tier with ≥ N source intervals is used, and the value is its mean:
 
-| 档 | B 用的来源 | C、C-fwd 用的来源 |
+| Tier | Source for B | Source for C, C-fwd |
 |---|---|---|
-| 1 | 所在窗口段 | 按第 4 节配对到的窗口段 |
-| 2 | 同一天内、与所在窗口同类型的所有窗口段 | 同一天内、所需类型的所有窗口段（放电记录用所有充电段，充电记录用所有放电段） |
-| 3 | 同一天内所有来源区间 | 同一天内所有来源区间 |
+| 1 | the window segment the interval is in | the window segment paired under section 4 |
+| 2 | all window segments on the same day of the same type as the interval's window | all window segments on the same day of the required type (all charge segments for discharge records, all discharge segments for charge records) |
+| 3 | all source intervals on the same day | all source intervals on the same day |
 
-- **"同一天"**：B 和 C 指区间自己的预测日。C-fwd 的放电记录，指**配对窗口段所在的那一天**，跨日时就是次日。
-- **数据的最后一天**（悉尼日期 2026-06-30）没有次日。C-fwd 放电记录需要跨日的，直接在当天从第 2 档开始。
-- 三档都不满足 ≥ N 时，该值为 NaN。
-- 每个值都另记一列，写明实际用了第几档：`tier_B`、`tier_C_gen`、`tier_C_load`、`tier_Cfwd_gen`。C-fwd 的充电侧和 C 相同，沿用 `tier_C_load`。
-- 典型情形：夏令时期间，预测日开头那一小时的 C 放电记录，在当天找不到"之前"的充电段，会直接进入第 2 档。
+- **"Same day"**: for B and C, the interval's own forecast day. For C-fwd discharge records, **the day of the paired window segment**, i.e. the next day when the pairing crosses days.
+- **The last day of the data** (Sydney date 2026-06-30) has no next day. C-fwd discharge records that would need to cross into the next day start directly from tier 2 on the same day.
+- If none of the three tiers has ≥ N, the value is NaN.
+- Each value gets its own column recording which tier was actually used: `tier_B`, `tier_C_gen`, `tier_C_load`, `tier_Cfwd_gen`. The charge side of C-fwd is the same as C and reuses `tier_C_load`.
+- Typical case: during daylight saving, a C discharge record in the first hour of a forecast day finds no "earlier" charge segment on that day and goes straight to tier 2.
 
-## 6. 标签公式
+## 6. Label formula
 
-沿用 nemed 的合成方式：强度 = Σ（Increase × 排放因子），不归一化。只把电池记录的排放因子换成反事实值：
+Follows nemed's composition: intensity = Σ (Increase × emission factor), not normalised. Only the emission factors of battery records are replaced with counterfactual values:
 
 ```
-base   = mef_nemed     （status 为 nonbatt 或 mixed）
-       = 0             （status 为 batt）
+base   = mef_nemed     (status nonbatt or mixed)
+       = 0             (status batt)
 mef_X  = base + w_gen × EF_gen^X + w_load × EF_load^X
 ```
 
-| 标签 | EF_gen | EF_load |
+| Label | EF_gen | EF_load |
 |---|---|---|
 | A | 0 | 0 |
-| B | S(所在段) | S(所在段) |
-| C | S(之前的充电段) ÷ η | η × S(之后的放电段) |
-| C-fwd | S(之后的充电段，可跨日) ÷ η | η × S(之后的放电段) |
+| B | S(own segment) | S(own segment) |
+| C | S(earlier charge segment) ÷ η | η × S(later discharge segment) |
+| C-fwd | S(later charge segment, may cross days) ÷ η | η × S(later discharge segment) |
 
-- nonbatt 区间的 w_gen = w_load = 0，四个标签都等于 mef_nemed。
-- batt_dir = both 的区间不需要单独处理：GEN 和 LOAD 两侧各用各的排放因子。任一侧需要的值是 NaN，整个标签就是 NaN。
-- Increase 为负的电池记录（`n_neg_batt`）按原符号计入，和 nemed 对 ENOF 负值的处理一致。
-- η = 0.85，是 v1 的固定值。敏感性分析取 0.80 和 0.90，影响 C 和 C-fwd。
+- For nonbatt intervals w_gen = w_load = 0, so all four labels equal mef_nemed.
+- Intervals with batt_dir = both need no special handling: the GEN and LOAD sides each use their own emission factor. If the value needed on either side is NaN, the whole label is NaN.
+- Battery records with negative Increase (`n_neg_batt`) are included with their original sign, consistent with how nemed treats negative ENOF values.
+- η = 0.85, a fixed value in v1. The sensitivity analysis uses 0.80 and 0.90, which affects C and C-fwd.
 
-## 7. 置为 NaN
+## 7. Set to NaN
 
-以下区间的 A/B/C/C-fwd 标签全部为 NaN，共 647 个：
+All A/B/C/C-fwd labels are NaN for the following intervals, 647 in total:
 
-- status 为 other 或 norecord；
-- has_ldof 为真；
-- ef_missing 为真；
-- w_total 不在 [0.5, 1.5] 之间。
+- status is other or norecord;
+- has_ldof is true;
+- ef_missing is true;
+- w_total is not within [0.5, 1.5].
 
-另外，第 5 节三档兜底都不满足的值也是 NaN。
+In addition, values for which none of the three fallback tiers of section 5 is met are also NaN.
 
-## 8. 结论分级
+## 8. Grading conclusions
 
-- **稳健结论**：在 B、C、C-fwd 三种设定下都成立。
-- **依赖储能假设**：只在其中一部分设定下成立。必须标注成立的是哪几种。
-- A 只作参照，不用于给结论分级。
+- **Robust conclusion**: holds under all three settings B, C and C-fwd.
+- **Depends on the storage assumption**: holds under only some of the settings. Which ones must be stated.
+- A is a reference only and is not used to grade conclusions.
 
-## 9. 敏感性分析
+## 9. Sensitivity analyses
 
-1. η 取 0.80 和 0.90（影响 C 和 C-fwd）。
-2. 窗口改为两个半年各用自己那一套。
-3. 不加 w 过滤：第 3 节去掉 w_total 那一条，第 7 节去掉对应的 NaN 规则。
+1. η = 0.80 and 0.90 (affects C and C-fwd).
+2. Windows: each half-year uses its own set.
+3. No w filter: drop the w_total condition from section 3 and the corresponding NaN rule from section 7.
 
-## 10. 草案待定事项在 v1 中的处理
+## 10. How the open items of the draft are handled in v1
 
-冻结后不再保留待定项。
+No open items remain after freezing.
 
-1. **w_enof 包含 Basslink**：已修改，见第 1 节。去掉 Basslink 后，status 计数和 batt_dir 计数都不变；mixed 和 nonbatt 的 w_total 的 1% 分位分别从 0.075 和 0.000 回到 0.787 和 0.871。
+1. **w_enof includes Basslink**: changed, see section 1. With Basslink removed, the status counts and batt_dir counts do not change; the 1% quantile of w_total for mixed and nonbatt goes from 0.075 and 0.000 back to 0.787 and 0.871.
 
-   **是否用 w 过滤**：v1 采用。w_total 不在 [0.5, 1.5] 的区间，四个标签都置为 NaN，也不作为来源区间。
-   - 受影响的区间：nonbatt 151 个、batt 95 个、mixed 25 个。
-   - 来源区间因此从 70,875 个降到 70,731 个。
-   - 理由：Increase 之和明显偏离 1，说明价格设定者的灵敏度是病态的（同价机组被重复计入，或方向相反的大值互相抵消）。nemed 的公式不归一化，会把这种偏差原样放大到 MEF 上。
-2. **是否增加 `has_basslink` 标记**：v1 不处理。
-   - Basslink 占比大的区间，w_enof 会明显小于 1，会被第 1 条的 w 过滤去掉（nonbatt 里有 11 个）。
-   - 其余带 Basslink 记录的 nonbatt 区间（2,695 个中剩下的 2,684 个）保留 nemed 的值，等于把 Basslink 那部分贡献当成 0。这是 v1 的已知局限。`w_basslink` 列留作诊断。
-3. **nonbatt 区间本身的极端值**：除第 1 条的 w 过滤外，v1 不处理。
-   - w 正常的 nonbatt 区间里，仍有 248 个 mef_nemed < 0，54 个 > 1.5。
-   - 原因是方向相反的 Increase 互相抵消（比如一台水电 Increase 为正、一台煤电为负）。在基于价格设定者的方法里，这种情况本身就可能出现，所以保留原值，写明数量。
-4. **7 点和 15 点的配对**：v1 不处理，按第 4 节的规则执行，不另作特殊处理。第 9 节第 2 条按半年分开窗口的敏感性分析，会部分反映边界选择的影响。
+   **Whether to use a w filter**: adopted in v1. Intervals with w_total outside [0.5, 1.5] have all four labels set to NaN and are not used as source intervals.
+   - Intervals affected: 151 nonbatt, 95 batt, 25 mixed.
+   - Source intervals therefore drop from 70,875 to 70,731.
+   - Reason: a sum of Increase far from 1 indicates ill-conditioned price-setter sensitivities (units at the same price counted more than once, or large values in opposite directions cancelling out). nemed's formula is not normalised and carries this distortion straight into the MEF.
+2. **Whether to add a `has_basslink` flag**: not handled in v1.
+   - Intervals with a large Basslink share have w_enof well below 1 and are removed by the w filter of item 1 (11 of them among nonbatt).
+   - The remaining nonbatt intervals with Basslink records (2,684 of the 2,695) keep nemed's value, which amounts to treating the Basslink contribution as 0. This is a known limitation of v1. The `w_basslink` column is kept for diagnostics.
+3. **Extreme values in nonbatt intervals themselves**: apart from the w filter of item 1, not handled in v1.
+   - Among nonbatt intervals with normal w, 248 still have mef_nemed < 0 and 54 have mef_nemed > 1.5.
+   - The cause is Increase values in opposite directions cancelling out (for example, a hydro unit with positive Increase and a coal unit with negative Increase). This can occur in its own right in a price-setter-based method, so the original values are kept and the counts are stated.
+4. **Pairing at 7:00 and 15:00**: not handled in v1; the rules of section 4 apply with no special treatment. The sensitivity analysis with separate half-year windows (section 9, item 2) partly reflects the effect of the boundary choice.
 
-## 11. 修订记录
+## 11. Revision history
 
-**相对草案 `8bf7280` 的修改：**
+**Changes from draft `8bf7280`:**
 
-1. Basslink 不再计入 w_enof，也不算"有 ENOF"；新增 `w_basslink` 诊断列。（`src/build_5min_full.py`）
-2. 新增 C-fwd 变体：
-   - 配对、兜底规则见第 4、5 节；
-   - 只用于事后评估；
-   - 写明 B、C、C-fwd 三种反事实的含义；
-   - 稳健结论改为三种设定下都成立。
-3. 原第 9 节的四个待定项逐条给出 v1 的处理，见第 10 节。新增 w 过滤（第 3、7 节），以及对应的敏感性分析（第 9 节第 3 条）。
-4. η 固定为 0.85，敏感性分析取 0.80 和 0.90。
-5. 声明里补充了这次冻结前看过的数值。
+1. Basslink is no longer included in w_enof and does not count as "has ENOF"; new diagnostic column `w_basslink`. (`src/build_5min_full.py`)
+2. New C-fwd variant:
+   - pairing and fallback rules in sections 4 and 5;
+   - used for ex-post evaluation only;
+   - the meaning of the three counterfactuals B, C and C-fwd is stated;
+   - a robust conclusion now has to hold under all three settings.
+3. Each of the four open items in the former section 9 is given its v1 treatment, see section 10. New w filter (sections 3 and 7) and the corresponding sensitivity analysis (section 9, item 3).
+4. η fixed at 0.85; the sensitivity analysis uses 0.80 and 0.90.
+5. The declaration now also lists the values seen before this freeze.

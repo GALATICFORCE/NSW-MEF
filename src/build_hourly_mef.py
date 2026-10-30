@@ -1,6 +1,6 @@
-"""5 分钟标签 → 小时表，格式是 MEF / AEI / 电价三方共用的小时表格式
+"""5-minute labels → hourly table, in the hourly format shared by MEF / AEI / price
 
-用法：python src\\build_hourly_mef.py --label A --rules label-rules-v1
+Usage: python src\\build_hourly_mef.py --label A --rules label-rules-v1
 """
 import argparse
 
@@ -14,19 +14,19 @@ FMT = "%Y-%m-%d %H:%M"
 
 
 def build_hourly(labels, name):
-    # 1. Time 是区间结束时刻：减 5 分钟变成区间开始，再向下取整到整点（NEM 时间）
+    # 1. Time is the interval end: subtract 5 minutes to get the interval start, then floor to the hour (NEM time)
     hour = (labels["Time"] - pd.Timedelta("5min")).dt.floor("H")
 
-    # 2. 每小时取有效区间的均值，n_intervals = 有效区间数
+    # 2. Each hour is the mean of its valid intervals; n_intervals = number of valid intervals
     g = labels[f"label_{name}"].groupby(hour)
     hourly = pd.DataFrame({"value": g.mean(), "n_intervals": g.count()})
     hourly = hourly.reindex(pd.date_range(FIRST_HOUR, LAST_HOUR, freq="H"))
     hourly["n_intervals"] = hourly["n_intervals"].fillna(0).astype(int)
 
-    # 3. 有效区间不足的小时设为缺失
+    # 3. Hours with too few valid intervals are set to missing
     hourly.loc[hourly["n_intervals"] < MIN_INTERVALS, "value"] = float("nan")
 
-    # 4. NEM 时间 = AEST（UTC+10，无夏令时），和布里斯班相同；悉尼有夏令时
+    # 4. NEM time = AEST (UTC+10, no daylight saving), same as Brisbane; Sydney has daylight saving
     nem = hourly.index
     sydney = nem.tz_localize("Australia/Brisbane").tz_convert("Australia/Sydney").tz_localize(None)
     return pd.DataFrame({

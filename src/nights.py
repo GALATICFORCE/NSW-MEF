@@ -1,19 +1,19 @@
-"""夜的定义和切分（交接文档 §4.2）
+"""Night definition and split (hand-off doc §4.2)
 
-night_of = D：悉尼本地 D 18:00 → D+1 07:00，正常 13 小时；2025-10-04 夜 12 小时，2026-04-04 夜 14 小时。
-按夜、按时间顺序切分，边界是固定日期（10-11 定，和已提交的 outputs\\nights_split_v1.csv 相同）。
-以后加更长的滞后特征时只从 train 前端裁，val / test 的日期不动。
+night_of = D: Sydney local D 18:00 → D+1 07:00, normally 13 hours; the 2025-10-04 night has 12 hours, the 2026-04-04 night 14.
+Split by night, in time order, at fixed date boundaries (decided 10-11, identical to the committed outputs\\nights_split_v1.csv).
+Longer lag features added later are only trimmed from the front of train; the val / test dates do not move.
 
-用法：python src\\nights.py   （核对切分和 outputs\\nights_split_v1.csv 逐行相同；不改写该文件）
+Usage: python src\\nights.py   (checks the split against outputs\\nights_split_v1.csv row by row; does not rewrite that file)
 """
 import pandas as pd
 
 HOURLY = "data/processed/mef_hourly_{label}_rules-v1.csv"
 SPLIT_OUT = "outputs/nights_split_v1.csv"
-NIGHT_START, NIGHT_END = 18, 7               # 悉尼本地小时
-MAX_LAG_DAYS = 7                              # Step 4 的特征最远用到 D-7
-FIRST_DAY = pd.Timestamp("2025-07-01")        # 第一个完整的悉尼日期
-LAST_NIGHT = pd.Timestamp("2026-06-29")       # 2026-06-30 夜缺 07-01 00:00-07:00
+NIGHT_START, NIGHT_END = 18, 7               # Sydney local hours
+MAX_LAG_DAYS = 7                              # Step 4 features reach back to D-7 at most
+FIRST_DAY = pd.Timestamp("2025-07-01")        # first complete Sydney date
+LAST_NIGHT = pd.Timestamp("2026-06-29")       # the 2026-06-30 night lacks 07-01 00:00-07:00
 FIRST_NIGHT = FIRST_DAY + pd.Timedelta(days=MAX_LAG_DAYS)
 VAL_START = pd.Timestamp("2026-03-15")
 TEST_START = pd.Timestamp("2026-05-08")
@@ -27,7 +27,7 @@ def load_hourly(label="C"):
 
 
 def add_night(h):
-    """加 night_of 列；不在 18:00-07:00 的小时为 NaT"""
+    """Adds a night_of column; hours outside 18:00-07:00 get NaT"""
     hour = h["hour_start_sydney"].dt.hour
     night = pd.Series(pd.NaT, index=h.index, dtype="datetime64[ns]")
     night[hour >= NIGHT_START] = h.loc[hour >= NIGHT_START, "sydney_date"]
@@ -36,7 +36,7 @@ def add_night(h):
 
 
 def split_nights(h):
-    """可用夜按固定日期边界切分；返回 night_of, split, n_hours"""
+    """Splits the usable nights at fixed date boundaries; returns night_of, split, n_hours"""
     nights = add_night(h).dropna(subset=["night_of"]).groupby("night_of").size().rename("n_hours")
     nights = nights[(nights.index >= FIRST_NIGHT) & (nights.index <= LAST_NIGHT)].reset_index()
     nights["split"] = "train"
@@ -46,7 +46,8 @@ def split_nights(h):
 
 
 def night_hours(label="C", splits=("train", "val")):
-    """可用夜里的小时（默认只含 train 和 val，测试集在 Step 7 之前不参与任何计算）"""
+    """Hours of the usable nights (by default train and val only; the test set is not used in any computation
+    before Step 7)"""
     h = add_night(load_hourly(label))
     nights = split_nights(h)
     out = h.merge(nights[["night_of", "split"]], on="night_of")

@@ -39,6 +39,6 @@ def fetch_month(month_start):
     print(f"{month_start:%Y-%m}: {len(nsw)} rows, {time.time() - t0:.0f}s")
 
 if __name__ == "__main__":
-    first, last = sys.argv[1], sys.argv[2]   # 例如 2025-07 2025-07
+    first, last = sys.argv[1], sys.argv[2]   # e.g. 2025-07 2025-07
     for m in pd.date_range(first, last, freq="MS"):
         fetch_month(m)

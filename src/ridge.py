@@ -1,10 +1,11 @@
-"""Step 4：Ridge（交接文档 §4.4、§7），只用 train 和 val 的夜
+"""Step 4: Ridge (hand-off doc §4.4, §7), train and val nights only
 
-ridge-v1 = 特征集 cal+lag（事先定，不由验证集结果决定）；cal 只用于诊断。
-4 个滞后特征用 StandardScaler（只在 train 上 fit），one-hot 不缩放；Ridge 带截距，只在 train 上 fit；预测不截断。
-alpha 取验证集 all 组 MAE 最小的，差在 1e-6 以内取较大的 alpha。
+ridge-v1 = feature set cal+lag (fixed in advance, not chosen from validation results); cal is used only as a diagnostic.
+The 4 lag features use StandardScaler (fitted on train only), one-hot columns are not scaled; Ridge has an intercept and is
+fitted on train only; forecasts are not clipped.
+alpha: lowest validation MAE in group all; within 1e-6, take the larger alpha.
 
-用法：python src\\ridge.py   （先运行 features.py）
+Usage: python src\\ridge.py   (run features.py first)
 """
 import pandas as pd
 from sklearn.compose import ColumnTransformer
@@ -26,7 +27,7 @@ OUT_SCAN = "outputs/ridge_alpha_scan-v1.csv"
 OUT_COEFS = "outputs/ridge_coefs-v1.csv"
 OUT_MAE_HOUR = "outputs/mae_by_hour_val-v1.csv"
 OUT_CONTEXT = "outputs/regret_context-v1.csv"
-FIXED_HOURS = [18, 19, 20, 21]   # 18:00 插上就充到 22:00
+FIXED_HOURS = [18, 19, 20, 21]   # plug in at 18:00 and charge until 22:00
 
 
 def make_model(cols, alpha):
@@ -58,7 +59,7 @@ def headline(summary):
 
 
 def pick_alpha(scan, feature_set):
-    """验证集 all 组 MAE 最小；差在 1e-6 以内取较大的 alpha"""
+    """Lowest validation MAE in group all; within 1e-6, take the larger alpha"""
     val = scan[(scan["feature_set"] == feature_set) & (scan["split"] == "val")]
     best = val["mae"].min()
     return val.loc[val["mae"] <= best + 1e-6, "alpha"].max()
@@ -83,7 +84,7 @@ if __name__ == "__main__":
     df = load()
     train = df["split"] == "train"
 
-    # 基线在同一次评估里重算，应和 v2 文件完全相同
+    # Baselines are recomputed in the same evaluation and must be identical to the v2 files
     preds = {"yesterday": yesterday(df, lookup_hourly())[0], "hourmean": hourmean(df)}
     for model, pred in preds.items():
         for split in SPLITS:

@@ -1,9 +1,10 @@
-"""两个 naive 基线（交接文档 §4.3），只在 train / val 夜上计算和评估
+"""Two naive baselines (hand-off doc §4.3), computed and evaluated on train / val nights only
 
-- yesterday（B1）：D-1 的同一悉尼小时。对 D+1 00:00-07:00 的小时，"昨天"也是 D-1（48 小时前），见 §3.3
-- hourmean（B2）：训练夜里每个悉尼小时的 C 标签均值
+- yesterday (B1): the same Sydney hour on D-1. For hours at D+1 00:00-07:00, "yesterday" is also D-1 (48 hours earlier),
+  see §3.3
+- hourmean (B2): mean label C for each Sydney hour over the training nights
 
-用法：python src\\baselines.py
+Usage: python src\\baselines.py
 """
 import pandas as pd
 
@@ -17,7 +18,7 @@ SPLITS = ("train", "val")
 
 
 def hour_status_counts():
-    """NEM 小时 -> 12 个 5 分钟里 status = nonbatt 的个数、status ∈ {batt, mixed} 的个数"""
+    """NEM hour -> number of its 12 5-minute intervals with status = nonbatt, and with status ∈ {batt, mixed}"""
     full = pd.read_csv(FULL, usecols=["Time", "status"], parse_dates=["Time"])
     hour = (full["Time"] - pd.Timedelta("5min")).dt.floor("H")
     return pd.DataFrame({
@@ -27,9 +28,10 @@ def hour_status_counts():
 
 
 def yesterday(df, hourly):
-    """B1。D-1 的这个悉尼小时出现两次（夏令时结束）取均值；不存在（夏令时开始）改用 D-2 的同一小时。
+    """B1. If this Sydney hour occurs twice on D-1 (daylight saving ends), take the mean;
+    if it does not exist on D-1 (daylight saving starts), use the same hour on D-2.
 
-    返回 (预测, 用了 D-2 的行, 用了"两次取均值"的行)
+    Returns (forecast, rows that used D-2, rows that used the mean of two hours)
     """
     key_cols = [hourly["sydney_date"], hourly["hour_start_sydney"].dt.hour]
     lut = hourly.groupby(key_cols)["value"].mean()
@@ -37,7 +39,7 @@ def yesterday(df, hourly):
 
     src_date = df["night_of"] - pd.Timedelta(days=1)
     hour = df["hour_start_sydney"].dt.hour
-    # 防泄漏：只用 D-1（悉尼日期）的数据，整天都早于预测发出时刻 D 00:00
+    # No leakage: only data from Sydney date D-1, all of which is before the forecast issue time D 00:00
     assert (src_date + pd.Timedelta(days=1) <= df["night_of"]).all()
     key = pd.MultiIndex.from_arrays([src_date, hour])
     pred = pd.Series(lut.reindex(key).to_numpy(), index=df.index)
@@ -51,7 +53,7 @@ def yesterday(df, hourly):
 
 
 def hourmean(df):
-    """B2：只用训练夜"""
+    """B2: training nights only"""
     train = df[df["split"] == "train"]
     lut = train.groupby(train["hour_start_sydney"].dt.hour)["truth"].mean()
     return df["hour_start_sydney"].dt.hour.map(lut)
@@ -64,7 +66,7 @@ if __name__ == "__main__":
     df["nonbatt_majority"] = df["hour_start_nem"].map(counts["n_nonbatt"]) >= 7
     df["n_battfill"] = df["hour_start_nem"].map(counts["n_battfill"])
 
-    # B1 只需要测试期之前的小时
+    # B1 only needs hours before the test period
     first_test = split_nights(load_hourly(LABEL)).query("split == 'test'")["night_of"].min()
     hourly = load_hourly(LABEL)
     hourly = hourly[hourly["sydney_date"] < first_test]

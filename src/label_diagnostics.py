@@ -1,13 +1,15 @@
-"""Step 4b 标签诊断（交接文档 §7）：只做评估，不训练新模型，只用 train 和 val 的夜
+"""Step 4b label diagnostics (hand-off doc §7): evaluation only, no new models trained; train and val nights only
 
-(a) 夜里各小时的平均 MEF 高低在 A / B / C / C-fwd 下是否一致，在不含电池填补的小时里是否成立
-(b) 这个高低关系随时间怎么变（P1 / P2 / val 三段）
-(c) 换一种标签当真实值，现有预测和策略表现如何
+(a) Whether the high/low pattern of mean MEF across night hours agrees under A / B / C / C-fwd, and whether it holds
+    in hours without battery filling
+(b) How this pattern changes over time (three periods P1 / P2 / val)
+(c) How the existing forecasts and strategies perform when a different label is taken as the truth
 
-ridge-v1 的预测用 Step 4 同样的数据和 alpha = 100 重新得到（Ridge 是确定性的，结果和 Step 4 相同）。
-weekmean = 现成特征 lag2to7_same_hour_mean，不拟合参数；它是看了 Step 4 结果后加的参照基线。
+ridge-v1 forecasts are reproduced with the same data as Step 4 and alpha = 100 (Ridge is deterministic, so the results
+equal Step 4). weekmean = the existing feature lag2to7_same_hour_mean, no fitted parameters; it is a reference baseline
+added after seeing the Step 4 results.
 
-用法：python src\\label_diagnostics.py   （先运行 features.py）
+Usage: python src\\label_diagnostics.py   (run features.py first)
 """
 import numpy as np
 import pandas as pd
@@ -40,7 +42,7 @@ def period_of(night):
 
 
 def hours_table():
-    """train + val 夜的每个小时：四种标签的值、电池计数、时期"""
+    """Every hour of the train + val nights: values of the four labels, battery counts, period"""
     base = night_hours("C", ("train", "val")).rename(columns={"value": "C"})
     for lab in ["A", "B", "Cfwd"]:
         base[lab] = base["hour_start_nem"].map(night_hours(lab, ("train", "val")).set_index("hour_start_nem")["value"])
@@ -54,11 +56,11 @@ def hours_table():
 
 
 def profile(h):
-    """表 1：时期 × 标签 × 悉尼小时的均值和小时数，外加 5 分钟电池定价构成"""
+    """Table 1: mean and number of hours by period × label × Sydney hour, plus the 5-minute battery price-setting mix"""
     rows = []
     variants = {lab: (h, lab) for lab in LABELS}
-    variants["nonbatt_only"] = (h[h["nonbatt_majority"]], "C")      # 交接文档的定义；这些小时里标签并不都相同
-    variants["nonbatt_pure"] = (h[h["n_battfill"] == 0], "C")       # 没有任何电池定价区间，四种标签完全相同
+    variants["nonbatt_only"] = (h[h["nonbatt_majority"]], "C")      # hand-off doc definition; labels are not all equal in these hours
+    variants["nonbatt_pure"] = (h[h["n_battfill"] == 0], "C")       # no battery-priced interval at all, so the four labels are identical
     pure = h[h["n_battfill"] == 0]
     assert (pure[LABELS].max(axis=1) - pure[LABELS].min(axis=1)).max() == 0
     for name, (sub, col) in variants.items():
@@ -66,7 +68,8 @@ def profile(h):
         rows.append(pd.DataFrame({"label": name, "mean": g.mean(), "n_hours": g.size()}))
     prof = pd.concat(rows).reset_index()
 
-    # 5 分钟构成：这些夜的小时里，电池放电定价 / 电池充电定价 / 非电池（status 不是 batt 或 mixed）各占多少
+    # 5-minute mix: in these nights' hours, the shares priced by battery discharge / battery charge / non-battery
+    # (status not batt or mixed)
     full = pd.read_csv(FULL, usecols=["Time", "status", "batt_dir"], parse_dates=["Time"])
     full["hour_start_nem"] = (full["Time"] - pd.Timedelta("5min")).dt.floor("H")
     full = full.merge(h[["hour_start_nem", "period", "hour_syd"]], on="hour_start_nem")
@@ -89,7 +92,7 @@ def best4(g, col):
 
 
 def agreement(h):
-    """表 2：时期 × 标签对的夜内 Spearman 和最优 4 小时的重合"""
+    """Table 2: within-night Spearman and overlap of the best 4 hours, by period × label pair"""
     rows = []
     for (period, night), g in h.groupby(["period", "night_of"]):
         for a, b in PAIRS:
@@ -104,7 +107,7 @@ def agreement(h):
 
 
 def strategies(h, feats):
-    """现成的、按 C 得到的预测（不重训）；fixed 和 oracle_C 是挑时段的规则"""
+    """Existing forecasts made for C (not retrained); fixed and oracle_C are hour-picking rules"""
     model = make_model(FEATURES, RIDGE_ALPHA).fit(feats.loc[feats["split"] == "train", FEATURES],
                                                   feats.loc[feats["split"] == "train", "y"])
     by_nem = feats.set_index("hour_start_nem")
@@ -118,7 +121,7 @@ def strategies(h, feats):
 
 
 def crosslabel(h, preds):
-    """表 3：split × 真实标签 × 策略"""
+    """Table 3: split × truth label × strategy"""
     rows = []
     for split in ["train", "val"]:
         sub = h[h["split"] == split]

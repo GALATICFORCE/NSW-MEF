@@ -1,10 +1,12 @@
-"""Step 4c：模型 2 HistGradientBoosting（交接文档 §7），只用 train 和 val 的夜
+"""Step 4c: model 2, HistGradientBoosting (hand-off doc §7), train and val nights only
 
-输入和 ridge-v1 完全相同的 24 列特征（不缩放、不重新编码），目标是 C 标签，只在 train 上 fit，预测不截断。
-网格 max_depth ∈ {2, 3, 5} × max_iter ∈ {50, 100, 200, 400}：每个深度拟合 400 轮，用 staged_predict 取中间轮数。
-选参：验证集 all 组 MAE 最小；差在 1e-6 以内取更简单的（先比 max_depth 小，再比 max_iter 小）。
+Inputs are exactly the same 24 feature columns as ridge-v1 (no scaling, no re-encoding); the target is label C; fitted
+on train only; forecasts are not clipped.
+Grid max_depth ∈ {2, 3, 5} × max_iter ∈ {50, 100, 200, 400}: each depth is fitted for 400 iterations and staged_predict
+gives the intermediate iteration counts.
+Selection: lowest validation MAE in group all; within 1e-6, take the simpler one (smaller max_depth first, then smaller max_iter).
 
-用法：python src\\hgb.py   （先运行 features.py）
+Usage: python src\\hgb.py   (run features.py first)
 """
 import numpy as np
 import pandas as pd
@@ -67,7 +69,7 @@ def pick(scan_df):
 
 
 def nightly(df, preds, truths):
-    """每夜 regret：split × 真实标签 × 策略"""
+    """Regret per night: split × truth label × strategy"""
     rows = []
     for split in SPLITS:
         sub = df[df["split"] == split]
@@ -135,7 +137,8 @@ if __name__ == "__main__":
                               values=["mae", "regret_kg_mean", "spearman_mean"]).round(4).to_string())
     print(f"chosen hgb-v1: max_depth {depth}, max_iter {n_iter}")
 
-    # 复现性：同一组参数拟合两次，预测逐值相同；也和网格里 staged_predict 的结果比较
+    # Reproducibility: fit the same parameters twice, forecasts identical value by value; also compared with
+    # staged_predict from the grid
     p1 = fit_hgb(df, depth, n_iter).predict(df[FEATURES])
     p2 = fit_hgb(df, depth, n_iter).predict(df[FEATURES])
     print(f"refit twice identical: {np.array_equal(p1, p2)} | "

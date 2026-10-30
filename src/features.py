@@ -1,10 +1,10 @@
-"""Step 4 特征表（交接文档 §4.4、§7）：每行是夜 D 的一个小时，只含 train 和 val 的夜
+"""Step 4 feature table (hand-off doc §4.4, §7): one row per hour of night D, train and val nights only
 
-预测在悉尼本地 D 00:00 发出，所有滞后特征只用悉尼日期 ≤ D-1 的小时。
-lag1_window_mean 是悉尼日期 D-1 当天 00-06 点和 18-23 点那些小时的均值，
-不是"D-1 那一夜"：那一夜的 00:00-07:00 在 D 日，属于未来。
+The forecast is issued at Sydney local D 00:00; every lag feature uses only hours with Sydney date ≤ D-1.
+lag1_window_mean is the mean of the hours 00-06 and 18-23 on Sydney date D-1,
+not "the night of D-1": that night's 00:00-07:00 falls on day D, which is in the future.
 
-用法：python src\\features.py
+Usage: python src\\features.py
 """
 import numpy as np
 import pandas as pd
@@ -24,21 +24,23 @@ DAY = pd.Timedelta(days=1)
 
 
 def lookup_hourly():
-    """查找表：只保留测试期之前的小时（和 baselines.py 一样）"""
+    """Lookup table: keeps only hours before the test period (as in baselines.py)"""
     h = load_hourly(LABEL)
     return h[h["sydney_date"] < TEST_START]
 
 
 def assert_before_issue(src_latest, night_of, name):
-    """防泄漏：特征用到的最晚一个源小时（悉尼开始时刻）必须在 D 00:00 之前整小时结束"""
+    """No leakage: the latest source hour used by a feature (Sydney start time) must have fully ended before D 00:00"""
     assert (pd.Series(src_latest, index=night_of.index) + pd.Timedelta(hours=1) <= night_of).all(), \
         f"{name} uses data from D 00:00 or later"
 
 
 def build(df, hourly=None):
-    """df = nights.night_hours 的输出（列 value 为 C 标签）；返回特征表和 lag1_same_hour 的夏令时处理记录
+    """df = output of nights.night_hours (column value is label C); returns the feature table and the record of
+    daylight-saving handling for lag1_same_hour
 
-    hourly = 滞后特征的查找表，默认只含测试期之前的小时；Step 5 给 test 夜建特征时传入全年小时表。
+    hourly = lookup table for the lag features, by default only hours before the test period; Step 5 passes the
+    full-year hourly table when building features for test nights.
     """
     if hourly is None:
         hourly = lookup_hourly()
@@ -52,12 +54,12 @@ def build(df, hourly=None):
     for i, col in enumerate(DOW_COLS):
         out[col] = (df["night_of"].dt.dayofweek == i).astype(int)
 
-    # lag1_same_hour：D-1 同一悉尼小时；D-1 没有该小时用 D-2，有两个取均值（和 B1 相同）
+    # lag1_same_hour: same Sydney hour on D-1; if D-1 lacks that hour use D-2, if it has two take the mean (as in B1)
     out["lag1_same_hour"], fallback, doubled = yesterday(df, hourly)
     src = d1.where(~fallback, d1 - DAY)
     assert_before_issue(src + pd.to_timedelta(hour, unit="H"), df["night_of"], "lag1_same_hour")
 
-    # lag1_window_mean / lag1_day_mean：只用悉尼日期 = D-1 的小时
+    # lag1_window_mean / lag1_day_mean: only hours with Sydney date = D-1
     src_hour = hourly["hour_start_sydney"].dt.hour
     window = hourly[src_hour.isin(WINDOW_HOURS)].groupby("sydney_date")
     day = hourly.groupby("sydney_date")
@@ -66,7 +68,7 @@ def build(df, hourly=None):
     assert_before_issue(d1.map(day["hour_start_sydney"].max()), df["night_of"], "lag1_day_mean")
     out["lag1_day_mean"] = d1.map(day["value"].mean()).to_numpy()
 
-    # lag2to7_same_hour_mean：D-2…D-7 同一悉尼小时；某天没有该小时就跳过，有两个先取均值
+    # lag2to7_same_hour_mean: same Sydney hour on D-2…D-7; a day without that hour is skipped, a day with two is averaged first
     per_day_hour = hourly.groupby([hourly["sydney_date"], src_hour])["value"].mean()
     lags = []
     for k in range(2, 8):

@@ -1,11 +1,13 @@
-"""Step 5：给 Oscar 的预测文件（交接文档 §5.2），模型 ridge-v1（Step 4c 按事先定的规则选定）
+"""Step 5: forecast file for Oscar (hand-off doc §5.2), model ridge-v1 (selected in Step 4c by the rule fixed in advance)
 
-- val 夜：只在 train 上拟合的 ridge-v1，就是 Step 4 评估过的那个；指标和系数逐值复现 Step 4 的输出文件。
-- test 夜：同一组超参数（cal+lag，alpha 100）在 train + val 上重新拟合一次（10-17 Kunyu 定，选项 b）。
-  滞后特征用到测试期内悉尼日期 ≤ D-1 的 C 标签（预测发出时已可得）；test 夜本身的标签在建特征前清空。
-  对测试期的标签不算任何指标、不报任何统计量。
+- val nights: ridge-v1 fitted on train only, i.e. the model evaluated in Step 4; metrics and coefficients reproduce
+  Step 4's output files value by value.
+- test nights: the same hyper-parameters (cal+lag, alpha 100) refitted once on train + val (Kunyu decided 10-17, option b).
+  Lag features use label C of test-period hours with Sydney date ≤ D-1 (already available when the forecast is issued);
+  the test nights' own labels are cleared before building features.
+  No metric or statistic is computed or reported on test-period labels.
 
-用法：python src\\forecast.py   （先运行 features.py 和 ridge.py）
+Usage: python src\\forecast.py   (run features.py and ridge.py first)
 """
 import numpy as np
 import pandas as pd
@@ -15,7 +17,7 @@ from nights import TEST_START, load_hourly, night_hours
 from ridge import MODEL, MODEL_SET, OUT_COEFS, OUT_METRICS, OUT_SCAN, evaluate_split, load, make_model, pick_alpha
 
 LABEL = "C"
-ALPHA = 100        # ridge-v1 的 alpha，Step 4 在验证集上选定
+ALPHA = 100        # alpha of ridge-v1, chosen on the validation set in Step 4
 OUT = "data/processed/mef_forecast_C_rules-v1_ridge-v1.csv"
 OUT_COEFS_TRAINVAL = "outputs/ridge_coefs_trainval-v1.csv"
 COLUMNS = ["night_of", "hour_start_sydney", "hour_start_nem", "mef_pred", "label", "rules", "model", "split"]
@@ -48,18 +50,18 @@ def fmt(df):
 if __name__ == "__main__":
     pd.set_option("display.width", 200)
     assert pick_alpha(pd.read_csv(OUT_SCAN), MODEL_SET) == ALPHA, f"alpha differs from {OUT_SCAN}"
-    df = load()                       # train + val 的特征表，不含 test 夜
+    df = load()                       # train + val feature table, no test nights
     train = df["split"] == "train"
-    hourly = load_hourly(LABEL)       # 全年小时表：test 夜的滞后特征要用到测试期内 D-1 及以前的小时
+    hourly = load_hourly(LABEL)       # full-year hourly table: test-night lag features need test-period hours up to D-1
 
-    # 1. 用全年查找表重建 train + val 特征，应和已提交的特征表逐值相同
+    # 1. Rebuild train + val features from the full-year lookup table; must equal the committed feature table value by value
     rebuilt, _, _ = build(night_hours(LABEL, ("train", "val")), hourly=hourly)
     assert rebuilt[KEYS].equals(df[KEYS]), "rebuilt rows differ from the feature file"
     diff = max_diff(rebuilt[FEATURES + ["y"]], df[FEATURES + ["y"]])
     assert diff < 1e-12
     print(f"train+val features rebuilt with the full-year lookup: {len(rebuilt)} rows, max diff {diff:.1e}")
 
-    # 2. val 夜：只在 train 上拟合，复现 Step 4
+    # 2. val nights: fit on train only, reproducing Step 4
     m_train = make_model(FEATURES, ALPHA).fit(df.loc[train, FEATURES], df.loc[train, "y"])
     pred_trval = pd.Series(m_train.predict(df[FEATURES]), index=df.index)
     for split in ("train", "val"):
@@ -70,7 +72,7 @@ if __name__ == "__main__":
     assert c_train.index.equals(ref_coefs.index) and max_diff(c_train, ref_coefs) < 1e-12
     print(f"train-only fit: metrics and coefficients identical to Step 4 ({OUT_METRICS.format(split='val')})")
 
-    # 3. test 夜特征：先清空 test 夜本身的标签，滞后特征只从查找表取
+    # 3. test-night features: clear the test nights' own labels first; lag features come only from the lookup table
     test = night_hours(LABEL, ("test",)).assign(value=np.nan)
     assert (test["night_of"] >= TEST_START).all() and set(test["split"]) == {"test"}
     feats_test, fallback, doubled = build(test, hourly=hourly)
@@ -81,7 +83,7 @@ if __name__ == "__main__":
           f"NaN in features {n_nan}, lag1_same_hour D-2 fallback {int(fallback.sum())}, "
           f"two-hour mean {int(doubled.sum())}")
 
-    # 4. test 夜：同一组超参数在 train + val 上重新拟合；拟合两次确认可复现
+    # 4. test nights: refit the same hyper-parameters on train + val; fit twice to confirm reproducibility
     assert set(df["split"]) == {"train", "val"}
     m_all = make_model(FEATURES, ALPHA).fit(df[FEATURES], df["y"])
     pred_test = m_all.predict(feats_test[FEATURES])
@@ -99,7 +101,7 @@ if __name__ == "__main__":
     print(top.reindex(top["coef_trainval"].abs().sort_values(ascending=False).index).head(10)
           .round(4).to_string(index=False))
 
-    # 5. 预测文件
+    # 5. Forecast file
     val = df.loc[df["split"] == "val", KEYS].assign(mef_pred=pred_trval[df["split"] == "val"])
     out = pd.concat([val, feats_test[KEYS].assign(mef_pred=pred_test)], ignore_index=True)
     out = out.assign(label=LABEL, rules="label-rules-v1", model=MODEL).sort_values("hour_start_nem")
